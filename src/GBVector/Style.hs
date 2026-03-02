@@ -14,7 +14,9 @@ module GBVector.Style
 
     -- * Stroke
     stroke,
+    dashedStroke,
     strokeEx,
+    defaultStrokeConfig,
 
     -- * Opacity
     opacity,
@@ -39,15 +41,15 @@ module GBVector.Style
 where
 
 import Data.Text (Text)
-import GBVector.Color (Color)
+import GBVector.Color (Color (..))
 import GBVector.Element
   ( Element (..),
     Fill (..),
     FilterKind (..),
     Gradient,
-    StrokeConfig,
+    StrokeConfig (..),
   )
-import GBVector.Types (FillRule)
+import GBVector.Types (FillRule, LineCap (..), LineJoin (..))
 
 -- ---------------------------------------------------------------------------
 -- Fill
@@ -81,9 +83,32 @@ fillRule = EFillRule
 stroke :: Color -> Double -> Element -> Element
 stroke = EStroke
 
+-- | Stroke an element with a dash pattern.
+--
+-- @dashedStroke color width [dashLength, gapLength] element@
+--
+-- The dash array alternates between drawn and gap lengths, repeating
+-- as needed. For example, @[5, 3]@ draws 5 units, skips 3, repeating.
+dashedStroke :: Color -> Double -> [Double] -> Element -> Element
+dashedStroke color width dashes =
+  EStrokeEx
+    (defaultStrokeConfig {strokeConfigColor = color, strokeConfigWidth = width, strokeConfigDashArray = dashes})
+
 -- | Stroke an element with full configuration.
 strokeEx :: StrokeConfig -> Element -> Element
 strokeEx = EStrokeEx
+
+-- | Default stroke configuration: 1px black, butt cap, miter join, no dash.
+defaultStrokeConfig :: StrokeConfig
+defaultStrokeConfig =
+  StrokeConfig
+    { strokeConfigColor = defaultStrokeColor,
+      strokeConfigWidth = 1,
+      strokeConfigCap = CapButt,
+      strokeConfigJoin = JoinMiter,
+      strokeConfigDashArray = [],
+      strokeConfigDashOffset = 0
+    }
 
 -- ---------------------------------------------------------------------------
 -- Opacity
@@ -148,3 +173,11 @@ title = ETitle
 -- description of the element for assistive technology.
 desc :: Text -> Element -> Element
 desc = EDesc
+
+-- ---------------------------------------------------------------------------
+-- Constants
+-- ---------------------------------------------------------------------------
+
+-- | Default stroke color (black, fully opaque).
+defaultStrokeColor :: Color
+defaultStrokeColor = Color 0 0 0 1

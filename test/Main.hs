@@ -45,6 +45,7 @@ import GBVector.Element
     Fill (..),
     Gradient (..),
     GradientStop (..),
+    StrokeConfig (..),
     TextAnchor (..),
     TextConfig (..),
   )
@@ -56,7 +57,7 @@ import GBVector.Pattern (checker, crosshatch, dotGrid, lineGrid)
 import GBVector.SVG (render, renderElement, writeSvg)
 import GBVector.SVG.Parse (parseElement, parseSvg)
 import GBVector.Shape (arc, circle, ellipse, line, polygon, rect, regularPolygon, ring, roundedRect, square, star)
-import GBVector.Style (blur, clip, desc, dropShadow, fill, fillNone, opacity, stroke, title, use, withId)
+import GBVector.Style (blur, clip, dashedStroke, defaultStrokeConfig, desc, dropShadow, fill, fillNone, opacity, stroke, title, use, withId)
 import GBVector.Text (defaultTextConfig, text, textAt)
 import GBVector.Transform
   ( Matrix (..),
@@ -852,6 +853,23 @@ testStyle =
           _ <- assertEqual "stroke color" black c
           assertEqual "stroke width" 2.0 w
         other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "dashedStroke wraps with dash array",
+      case dashedStroke black 2 [5, 3] (circle 5) of
+        EStrokeEx cfg (ECircle 5) -> do
+          _ <- assertEqual "dash color" black (strokeConfigColor cfg)
+          _ <- assertEqual "dash width" 2.0 (strokeConfigWidth cfg)
+          assertEqual "dash array" [5, 3] (strokeConfigDashArray cfg)
+        other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "defaultStrokeConfig has sane defaults",
+      do
+        _ <- assertEqual "default width" 1.0 (strokeConfigWidth defaultStrokeConfig)
+        assertEqual "default dash" [] (strokeConfigDashArray defaultStrokeConfig)
+    ),
+    ( "render dashedStroke includes stroke-dasharray",
+      let svg = renderElement (dashedStroke black 2 [5, 3] (circle 5))
+       in assertContains "dasharray" (T.pack "stroke-dasharray") svg
     ),
     ( "opacity wraps element",
       assertEqual "opacity" (EOpacity 0.5 (ECircle 5)) (opacity 0.5 (circle 5))

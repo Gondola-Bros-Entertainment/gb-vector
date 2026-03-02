@@ -39,7 +39,7 @@ Companion to [gb-sprite](https://github.com/Gondola-Bros-Entertainment/gb-sprite
 - Text elements with font configuration
 - Tree optimizer: collapse redundant transforms and empty groups
 - Semigroup/Monoid composition on Element
-- 282 tests, 100% Haddock coverage
+- 285 tests, 100% Haddock coverage
 
 **Dependencies:** `base` + `text` only. Both GHC boot libraries. Zero external deps.
 
