@@ -287,6 +287,14 @@ renderEl (EWithId elId child) ds =
 renderEl (EUse refId) ds =
   (tag "use" [attr "href" ("#" <> refId)] Nothing, ds)
 renderEl (ERaw t) ds = (t, ds)
+renderEl (ETitle titleText child) ds =
+  let (childText, childDs) = renderEl child ds
+      titleTag = "<title>" <> escapeXml titleText <> "</title>"
+   in (wrapG [] (titleTag <> childText), childDs)
+renderEl (EDesc descText child) ds =
+  let (childText, childDs) = renderEl child ds
+      descTag = "<desc>" <> escapeXml descText <> "</desc>"
+   in (wrapG [] (descTag <> childText), childDs)
 
 -- ---------------------------------------------------------------------------
 -- Children Rendering

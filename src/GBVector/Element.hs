@@ -157,6 +157,9 @@ data Element
   | EWithId !Text !Element
   | EUse !Text
   | ERaw !Text
+  | -- Accessibility
+    ETitle !Text !Element
+  | EDesc !Text !Element
   | EEmpty
   deriving (Show, Eq)
 

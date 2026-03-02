@@ -1,6 +1,6 @@
 -- | Gradient construction helpers.
 --
--- Build gradients for use with 'fillGradient':
+-- Build gradients for use with 'GBVector.Style.fillGradient':
 --
 -- @fillGradient (linearGradient (V2 0 0) (V2 100 0) [stop 0 red, stop 1 blue]) $ rect 100 100@
 module GBVector.Gradient
@@ -14,10 +14,11 @@ module GBVector.Gradient
 
     -- * Convenience
     evenStops,
+    oklabStops,
   )
 where
 
-import GBVector.Color (Color)
+import GBVector.Color (Color, lerpOklab)
 import GBVector.Element
   ( Gradient (..),
     GradientStop (..),
@@ -61,3 +62,16 @@ evenStops colors =
   let count = length colors
       step = 1.0 / fromIntegral (count - 1)
    in zipWith (\i c -> stop (fromIntegral i * step) c) [0 :: Int ..] colors
+
+-- | Generate @n@ evenly-spaced stops that interpolate between two colors
+-- through OKLAB space. Produces perceptually uniform gradients.
+--
+-- @oklabStops 5 red blue@ creates 5 stops from red to blue via OKLAB.
+oklabStops :: Int -> Color -> Color -> [GradientStop]
+oklabStops n startColor endColor
+  | n < 2 = evenStops [startColor, endColor]
+  | otherwise =
+      let steps = n - 1
+       in [ stop (fromIntegral i / fromIntegral steps) (lerpOklab (fromIntegral i / fromIntegral steps) startColor endColor)
+          | i <- [0 .. steps]
+          ]

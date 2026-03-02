@@ -27,12 +27,17 @@ source-repository head
 library
   exposed-modules:
     GBVector.Bezier
+    GBVector.Boolean
     GBVector.Color
     GBVector.Compose
     GBVector.Element
     GBVector.Gradient
+    GBVector.Noise
     GBVector.Path
+    GBVector.PathOps
+    GBVector.Pattern
     GBVector.SVG
+    GBVector.SVG.Parse
     GBVector.Shape
     GBVector.Style
     GBVector.Text

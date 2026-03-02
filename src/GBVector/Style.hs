@@ -31,6 +31,10 @@ module GBVector.Style
     withId,
     use,
     raw,
+
+    -- * Accessibility
+    title,
+    desc,
   )
 where
 
@@ -130,3 +134,17 @@ use = EUse
 -- | Inject raw SVG markup.
 raw :: Text -> Element
 raw = ERaw
+
+-- ---------------------------------------------------------------------------
+-- Accessibility
+-- ---------------------------------------------------------------------------
+
+-- | Add a @\<title\>@ element for accessibility. Screen readers use this
+-- as the accessible name of the element.
+title :: Text -> Element -> Element
+title = ETitle
+
+-- | Add a @\<desc\>@ element for accessibility. Provides a longer
+-- description of the element for assistive technology.
+desc :: Text -> Element -> Element
+desc = EDesc

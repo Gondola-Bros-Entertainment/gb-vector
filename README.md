@@ -26,14 +26,20 @@ Companion to [gb-sprite](https://github.com/Gondola-Bros-Entertainment/gb-sprite
 - Compose via function application (`translate 50 50 $ fill gold $ circle 30`) or `(&)`
 - Shapes: circle, ellipse, rect, rounded rect, polygon, star, arc, ring
 - Path DSL: monadic builder with lineTo, cubicTo, quadTo, arcTo, closePath
-- Transforms: translate, rotate, rotateAround, scale, skew
+- Path operations: reverse, measure, split, offset, simplify (Ramer-Douglas-Peucker)
+- Boolean operations: union, intersection, difference, XOR (Sutherland-Hodgman)
+- Transforms: translate, rotate, rotateAround, scale, skew + affine matrix type
 - Style: fill, stroke, opacity, clip, mask, blur, drop shadow
-- Gradients: linear, radial, with stop helpers
+- Color: 43 named colors, hex, HSL, Oklab perceptual space, lighten/darken/saturate/invert
+- Gradients: linear, radial, with stop helpers and Oklab interpolation
+- Noise: Perlin, simplex, FBM, noise-driven paths, Voronoi diagrams
+- Patterns: dot grid, line grid, crosshatch, checker
+- SVG parsing: round-trip parse/render for basic shapes, paths, groups, transforms
 - Bezier math: De Casteljau evaluation, subdivision, flattening, arc-to-cubic
 - Text elements with font configuration
+- Tree optimizer: collapse redundant transforms and empty groups
 - Semigroup/Monoid composition on Element
-- Pure SVG serialization to Text
-- File output via `writeSvg`
+- 282 tests, 100% Haddock coverage
 
 **Dependencies:** `base` + `text` only. Both GHC boot libraries. Zero external deps.
 
@@ -44,17 +50,23 @@ Companion to [gb-sprite](https://github.com/Gondola-Bros-Entertainment/gb-sprite
 ```
 src/GBVector/
 ├── Types.hs       V2, Segment, ArcParams, Path, enums (LineCap, LineJoin, FillRule)
-├── Color.hs       RGBA (Double 0-1), rgb/rgb8/hex, 39 named colors, lerp, toHex
+├── Color.hs       RGBA, rgb/rgb8/hex/hsl, 43 named colors, Oklab, lighten/darken
 ├── Element.hs     Element tree, Fill, Gradient, StrokeConfig, FilterKind, Document
 ├── Path.hs        PathBuilder DSL (startAt/lineTo/cubicTo/closePath/buildPath)
+├── PathOps.hs     reverse, measure, split, offset, simplify paths
+├── Boolean.hs     union, intersection, difference, XOR polygon clipping
 ├── Bezier.hs      De Casteljau, subdivision, bbox, arc-to-cubic, flatten, length
 ├── Shape.hs       circle, rect, roundedRect, ellipse, polygon, star, arc, ring
-├── Gradient.hs    linearGradient, radialGradient, stop, evenStops
-├── Transform.hs   translate, rotate, rotateAround, scale, skewX, skewY
+├── Gradient.hs    linearGradient, radialGradient, stop, evenStops, oklabStops
+├── Noise.hs       perlin2D, simplex2D, fbm, noisePath, wobblePath, Voronoi
+├── Pattern.hs     dotGrid, lineGrid, crosshatch, checker, patternDef
+├── Transform.hs   translate, rotate, scale, skew + Matrix type with composition
 ├── Style.hs       fill, stroke, opacity, clip, mask, blur, dropShadow, withId, use
-├── Compose.hs     group, empty, document, documentWithViewBox, background
+├── Compose.hs     group, empty, document, background, optimizeElement
 ├── Text.hs        text, textAt, textWithConfig, font config builders
-└── SVG.hs         render :: Document -> Text, writeSvg :: FilePath -> Document -> IO ()
+├── SVG.hs         render :: Document -> Text, writeSvg :: FilePath -> Document -> IO ()
+└── SVG/
+    └── Parse.hs   parseSvg, parseElement — SVG text back to Element trees
 ```
 
 ### Pipeline
@@ -106,11 +118,19 @@ rgb       :: Double -> Double -> Double -> Color
 rgba      :: Double -> Double -> Double -> Double -> Color
 rgb8      :: Int -> Int -> Int -> Color              -- 0-255 channels
 hex       :: String -> Color                         -- "#ff0000", "f00", etc.
+hsl       :: Double -> Double -> Double -> Color     -- hue (0-360), saturation, lightness
+hsla      :: Double -> Double -> Double -> Double -> Color
 lerp      :: Double -> Color -> Color -> Color       -- linear interpolation
+lerpOklab :: Double -> Color -> Color -> Color       -- perceptual interpolation
 withAlpha :: Double -> Color -> Color
 toHex     :: Color -> String                         -- "#rrggbb" or "#rrggbbaa"
+lighten   :: Double -> Color -> Color                -- increase lightness in Oklab
+darken    :: Double -> Color -> Color
+saturate  :: Double -> Color -> Color
+desaturate :: Double -> Color -> Color
+invert    :: Color -> Color
 
--- 39 named colors: black, white, red, green, blue, yellow, cyan, magenta,
+-- 43 named colors: black, white, red, green, blue, yellow, cyan, magenta,
 -- gold, crimson, coral, navy, purple, violet, teal, olive, ...
 ```
 
@@ -161,6 +181,31 @@ polylinePath :: [V2] -> Path   -- open path through points
 polygonPath  :: [V2] -> Path   -- closed path through points
 ```
 
+### Path Operations
+
+```haskell
+reversePath  :: Path -> Path
+measurePath  :: Path -> Double              -- approximate arc length
+splitPathAt  :: Double -> Path -> (Path, Path)  -- split at t in [0,1]
+subpath      :: Double -> Double -> Path -> Path
+offsetPath   :: Double -> Path -> Path      -- parallel curve approximation
+simplifyPath :: Double -> Path -> Path      -- Ramer-Douglas-Peucker
+```
+
+### Boolean Operations
+
+```haskell
+union        :: Path -> Path -> Path
+intersection :: Path -> Path -> Path
+difference   :: Path -> Path -> Path        -- A minus B
+xorPaths     :: Path -> Path -> Path
+
+pathToPolygon  :: Path -> [V2]
+polygonToPath  :: [V2] -> Path
+polygonArea    :: [V2] -> Double
+pointInPolygon :: V2 -> [V2] -> Bool
+```
+
 ### Transform & Style
 
 ```haskell
@@ -182,12 +227,33 @@ blur        :: Double -> Element -> Element              -- stdDeviation
 dropShadow  :: Double -> Double -> Double -> Color -> Element -> Element
 ```
 
+### Noise
+
+```haskell
+perlin2D       :: Int -> Double -> Double -> Double     -- seed, x, y
+simplex2D      :: Int -> Double -> Double -> Double
+fbm            :: (Double -> Double -> Double) -> Int -> Double -> Double -> Double -> Double -> Double
+noisePath      :: (Double -> Double -> Double) -> Int -> Double -> Double -> Double -> Path
+noiseClosedPath :: (Double -> Double -> Double) -> Int -> Double -> Double -> Double -> Double -> Path
+wobblePath     :: (Double -> Double -> Double) -> Double -> Path -> Path
+jitterPoints   :: (Double -> Double -> Double) -> Double -> [V2] -> [V2]
+voronoiCells   :: Int -> Int -> Int -> Double -> Double -> [V2]
+voronoiEdges   :: Int -> Int -> Int -> Double -> Double -> [(V2, V2)]
+```
+
 ### SVG Output
 
 ```haskell
 render        :: Document -> Text          -- pure serialization
 renderElement :: Element -> Text           -- fragment (no <svg> wrapper)
 writeSvg      :: FilePath -> Document -> IO ()
+```
+
+### SVG Parsing
+
+```haskell
+parseSvg     :: Text -> Either ParseError Document
+parseElement :: Text -> Either ParseError Element
 ```
 
 ---
@@ -243,9 +309,9 @@ Requires [GHCup](https://www.haskell.org/ghcup/) with GHC >= 9.6.
 
 ```bash
 cabal build                              # Build library
-cabal test                               # Run all tests (151 pure tests)
+cabal test                               # Run tests (282 pure tests)
 cabal build --ghc-options="-Werror"      # Warnings as errors
-cabal haddock                            # Generate docs
+cabal haddock                            # Generate docs (100% coverage)
 ```
 
 ---

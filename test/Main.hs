@@ -9,25 +9,36 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import GBVector.Bezier (cubicBBox, cubicLength, evalCubic, evalQuad, flattenCubic, splitCubicAt, subdivideCubic)
+import GBVector.Boolean (intersection, pathToPolygon, pointInPolygon, polygonArea, polygonToPath, union)
 import GBVector.Color
   ( Color (..),
     black,
     blue,
     crimson,
+    darken,
+    desaturate,
+    fromOklab,
     gold,
     green,
     hex,
+    hsl,
+    hsla,
+    invert,
     lerp,
+    lerpOklab,
+    lighten,
     red,
     rgb,
     rgb8,
     rgba,
+    saturate,
     toHex,
+    toOklab,
     transparent,
     white,
     withAlpha,
   )
-import GBVector.Compose (background, document, documentWithViewBox, empty, group)
+import GBVector.Compose (background, document, documentWithViewBox, empty, group, optimizeElement)
 import GBVector.Element
   ( Document (..),
     Element (..),
@@ -37,13 +48,34 @@ import GBVector.Element
     TextAnchor (..),
     TextConfig (..),
   )
-import GBVector.Gradient (evenStops, linearGradient, radialGradient, stop)
+import GBVector.Gradient (evenStops, linearGradient, oklabStops, radialGradient, stop)
+import GBVector.Noise (fbm, jitterPoints, noiseClosedPath, noisePath, perlin2D, simplex2D, voronoiCells, voronoiEdges, wobblePath)
 import GBVector.Path (buildPath, closePath, cubicTo, lineTo, polygonPath, polylinePath, startAt)
+import GBVector.PathOps (measurePath, offsetPath, reversePath, simplifyPath, splitPathAt, subpath)
+import GBVector.Pattern (checker, crosshatch, dotGrid, lineGrid)
 import GBVector.SVG (render, renderElement, writeSvg)
+import GBVector.SVG.Parse (parseElement, parseSvg)
 import GBVector.Shape (arc, circle, ellipse, line, polygon, rect, regularPolygon, ring, roundedRect, square, star)
-import GBVector.Style (blur, clip, dropShadow, fill, fillNone, opacity, stroke, use, withId)
+import GBVector.Style (blur, clip, desc, dropShadow, fill, fillNone, opacity, stroke, title, use, withId)
 import GBVector.Text (defaultTextConfig, text, textAt)
-import GBVector.Transform (rotate, rotateAround, scale, scaleXY, skewX, skewY, translate)
+import GBVector.Transform
+  ( Matrix (..),
+    applyMatrix,
+    composeMatrix,
+    identity,
+    rotate,
+    rotateAround,
+    rotateM,
+    scale,
+    scaleM,
+    scaleXY,
+    scaleXYM,
+    skewX,
+    skewXM,
+    skewY,
+    translate,
+    translateM,
+  )
 import GBVector.Types
   ( FillRule (..),
     LineCap (..),
@@ -140,16 +172,27 @@ main = do
     ( testTypes
         ++ testColor
         ++ testColorHex
+        ++ testColorHsl
+        ++ testColorOklab
+        ++ testColorAdjust
         ++ testElement
         ++ testPath
         ++ testShape
         ++ testTransform
+        ++ testMatrix
         ++ testStyle
         ++ testCompose
         ++ testSvgRender
         ++ testBezier
         ++ testGradient
         ++ testText
+        ++ testNoise
+        ++ testPattern
+        ++ testPathOps
+        ++ testBoolean
+        ++ testParse
+        ++ testAccessibility
+        ++ testOptimize
         ++ svgFileTests
     )
 
@@ -285,6 +328,233 @@ testColorHex =
     ( "toHex includes alpha when < 1",
       let result = toHex (rgba 1 0 0 0.5)
        in assertTrue "toHex alpha" (length result == 9)
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- HSL tests
+-- ---------------------------------------------------------------------------
+
+testColorHsl :: [(String, TestResult)]
+testColorHsl =
+  [ ( "hsl red is (0, 1, 0.5)",
+      let Color r g b _ = hsl 0 1 0.5
+       in do
+            _ <- assertApprox "hsl red r" colorTolerance 1.0 r
+            _ <- assertApprox "hsl red g" colorTolerance 0.0 g
+            assertApprox "hsl red b" colorTolerance 0.0 b
+    ),
+    ( "hsl green is (120, 1, 0.5)",
+      let Color r g b _ = hsl 120 1 0.5
+       in do
+            _ <- assertApprox "hsl green r" colorTolerance 0.0 r
+            _ <- assertApprox "hsl green g" colorTolerance 1.0 g
+            assertApprox "hsl green b" colorTolerance 0.0 b
+    ),
+    ( "hsl blue is (240, 1, 0.5)",
+      let Color r g b _ = hsl 240 1 0.5
+       in do
+            _ <- assertApprox "hsl blue r" colorTolerance 0.0 r
+            _ <- assertApprox "hsl blue g" colorTolerance 0.0 g
+            assertApprox "hsl blue b" colorTolerance 1.0 b
+    ),
+    ( "hsl white is (0, 0, 1)",
+      let Color r g b _ = hsl 0 0 1
+       in do
+            _ <- assertApprox "hsl white r" colorTolerance 1.0 r
+            _ <- assertApprox "hsl white g" colorTolerance 1.0 g
+            assertApprox "hsl white b" colorTolerance 1.0 b
+    ),
+    ( "hsl black is (0, 0, 0)",
+      let Color r g b _ = hsl 0 0 0
+       in do
+            _ <- assertApprox "hsl black r" colorTolerance 0.0 r
+            _ <- assertApprox "hsl black g" colorTolerance 0.0 g
+            assertApprox "hsl black b" colorTolerance 0.0 b
+    ),
+    ( "hsla preserves alpha",
+      let Color _ _ _ a = hsla 0 1 0.5 0.7
+       in assertApprox "hsla alpha" colorTolerance 0.7 a
+    ),
+    ( "hsl wraps hue above 360",
+      let c1 = hsl 0 1 0.5
+          c2 = hsl 360 1 0.5
+          Color r1 g1 b1 _ = c1
+          Color r2 g2 b2 _ = c2
+       in do
+            _ <- assertApprox "wrap hue r" colorTolerance r1 r2
+            _ <- assertApprox "wrap hue g" colorTolerance g1 g2
+            assertApprox "wrap hue b" colorTolerance b1 b2
+    ),
+    ( "hsl negative hue wraps",
+      let c1 = hsl 300 1 0.5
+          c2 = hsl (-60) 1 0.5
+          Color r1 g1 b1 _ = c1
+          Color r2 g2 b2 _ = c2
+       in do
+            _ <- assertApprox "neg hue r" colorTolerance r1 r2
+            _ <- assertApprox "neg hue g" colorTolerance g1 g2
+            assertApprox "neg hue b" colorTolerance b1 b2
+    ),
+    ( "hsl yellow is (60, 1, 0.5)",
+      let Color r g b _ = hsl 60 1 0.5
+       in do
+            _ <- assertApprox "hsl yellow r" colorTolerance 1.0 r
+            _ <- assertApprox "hsl yellow g" colorTolerance 1.0 g
+            assertApprox "hsl yellow b" colorTolerance 0.0 b
+    ),
+    ( "hsl cyan is (180, 1, 0.5)",
+      let Color r g b _ = hsl 180 1 0.5
+       in do
+            _ <- assertApprox "hsl cyan r" colorTolerance 0.0 r
+            _ <- assertApprox "hsl cyan g" colorTolerance 1.0 g
+            assertApprox "hsl cyan b" colorTolerance 1.0 b
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- OKLAB tests
+-- ---------------------------------------------------------------------------
+
+testColorOklab :: [(String, TestResult)]
+testColorOklab =
+  [ ( "toOklab black is (0, 0, 0)",
+      let (l, a, b) = toOklab black
+       in do
+            _ <- assertApprox "oklab black L" colorTolerance 0.0 l
+            _ <- assertApprox "oklab black a" colorTolerance 0.0 a
+            assertApprox "oklab black b" colorTolerance 0.0 b
+    ),
+    ( "toOklab white has L near 1",
+      let (l, _, _) = toOklab white
+       in assertApprox "oklab white L" 0.01 1.0 l
+    ),
+    ( "fromOklab roundtrip red",
+      let (l, a, b) = toOklab red
+          Color rr rg rb _ = fromOklab l a b
+       in do
+            _ <- assertApprox "oklab rt red r" 0.01 1.0 rr
+            _ <- assertApprox "oklab rt red g" 0.01 0.0 rg
+            assertApprox "oklab rt red b" 0.01 0.0 rb
+    ),
+    ( "fromOklab roundtrip blue",
+      let (l, a, b) = toOklab blue
+          Color br bg bb _ = fromOklab l a b
+       in do
+            _ <- assertApprox "oklab rt blue r" 0.01 0.0 br
+            _ <- assertApprox "oklab rt blue g" 0.01 0.0 bg
+            assertApprox "oklab rt blue b" 0.01 1.0 bb
+    ),
+    ( "fromOklab roundtrip gold",
+      let (l, a, b) = toOklab gold
+          Color gr gg gb _ = fromOklab l a b
+          Color er eg eb _ = gold
+       in do
+            _ <- assertApprox "oklab rt gold r" 0.01 er gr
+            _ <- assertApprox "oklab rt gold g" 0.01 eg gg
+            assertApprox "oklab rt gold b" 0.01 eb gb
+    ),
+    ( "lerpOklab t=0 gives start",
+      let Color r g b _ = lerpOklab 0.0 red blue
+       in do
+            _ <- assertApprox "oklab lerp0 r" 0.01 1.0 r
+            _ <- assertApprox "oklab lerp0 g" 0.01 0.0 g
+            assertApprox "oklab lerp0 b" 0.01 0.0 b
+    ),
+    ( "lerpOklab t=1 gives end",
+      let Color r g b _ = lerpOklab 1.0 red blue
+       in do
+            _ <- assertApprox "oklab lerp1 r" 0.01 0.0 r
+            _ <- assertApprox "oklab lerp1 g" 0.01 0.0 g
+            assertApprox "oklab lerp1 b" 0.01 1.0 b
+    ),
+    ( "lerpOklab midpoint differs from linear lerp",
+      let okMid = lerpOklab 0.5 red green
+          linMid = lerp 0.5 red green
+       in assertTrue "oklab mid differs" (okMid /= linMid)
+    ),
+    ( "lerpOklab interpolates alpha",
+      let Color _ _ _ a = lerpOklab 0.5 (rgba 1 0 0 0) (rgba 0 0 1 1)
+       in assertApprox "oklab alpha lerp" colorTolerance 0.5 a
+    ),
+    ( "toOklab red has positive a (red axis)",
+      let (_, a, _) = toOklab red
+       in assertTrue "red a > 0" (a > 0)
+    ),
+    ( "toOklab blue has negative b (blue axis)",
+      let (_, _, b) = toOklab blue
+       in assertTrue "blue b < 0" (b < 0)
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Color adjustment tests
+-- ---------------------------------------------------------------------------
+
+testColorAdjust :: [(String, TestResult)]
+testColorAdjust =
+  [ ( "lighten increases lightness",
+      let (origL, _, _) = toOklab red
+          (newL, _, _) = toOklab (lighten 0.2 red)
+       in assertTrue "lighten increases L" (newL > origL)
+    ),
+    ( "darken decreases lightness",
+      let (origL, _, _) = toOklab red
+          (newL, _, _) = toOklab (darken 0.2 red)
+       in assertTrue "darken decreases L" (newL < origL)
+    ),
+    ( "lighten 0 is identity",
+      let (origL, _, _) = toOklab red
+          (newL, _, _) = toOklab (lighten 0 red)
+       in assertApprox "lighten 0" 0.01 origL newL
+    ),
+    ( "darken 0 is identity",
+      let (origL, _, _) = toOklab red
+          (newL, _, _) = toOklab (darken 0 red)
+       in assertApprox "darken 0" 0.01 origL newL
+    ),
+    ( "lighten preserves alpha",
+      let Color _ _ _ a = lighten 0.2 (rgba 1 0 0 0.3)
+       in assertApprox "lighten alpha" colorTolerance 0.3 a
+    ),
+    ( "darken preserves alpha",
+      let Color _ _ _ a = darken 0.2 (rgba 1 0 0 0.3)
+       in assertApprox "darken alpha" colorTolerance 0.3 a
+    ),
+    ( "saturate increases chroma",
+      let muted = rgb 0.5 0.4 0.3
+          (_, oa, ob) = toOklab muted
+          origChroma = sqrt (oa * oa + ob * ob)
+          (_, na, nb) = toOklab (saturate 0.5 muted)
+          newChroma = sqrt (na * na + nb * nb)
+       in assertTrue "saturate chroma" (newChroma > origChroma)
+    ),
+    ( "desaturate decreases chroma",
+      let muted = rgb 0.5 0.4 0.3
+          (_, oa, ob) = toOklab muted
+          origChroma = sqrt (oa * oa + ob * ob)
+          (_, na, nb) = toOklab (desaturate 0.5 muted)
+          newChroma = sqrt (na * na + nb * nb)
+       in assertTrue "desaturate chroma" (newChroma < origChroma)
+    ),
+    ( "invert black is white",
+      assertEqual "invert black" white (invert black)
+    ),
+    ( "invert white is black",
+      assertEqual "invert white" black (invert white)
+    ),
+    ( "invert preserves alpha",
+      let Color _ _ _ a = invert (rgba 1 0 0 0.5)
+       in assertApprox "invert alpha" epsilon 0.5 a
+    ),
+    ( "double invert is identity",
+      let original = rgb 0.3 0.6 0.9
+          Color r1 g1 b1 _ = original
+          Color r2 g2 b2 _ = invert (invert original)
+       in do
+            _ <- assertApprox "double inv r" epsilon r1 r2
+            _ <- assertApprox "double inv g" epsilon g1 g2
+            assertApprox "double inv b" epsilon b1 b2
     )
   ]
 
@@ -481,6 +751,82 @@ testTransform =
        in case el of
             ETranslate 10 20 (ERotate 45 (ECircle 5)) -> Right ()
             other -> Left ("unexpected: " ++ show other)
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Matrix tests
+-- ---------------------------------------------------------------------------
+
+testMatrix :: [(String, TestResult)]
+testMatrix =
+  [ ( "identity matrix",
+      assertEqual "identity" (Matrix 1 0 0 1 0 0) identity
+    ),
+    ( "identity apply preserves point",
+      assertEqual "id apply" (V2 42 17) (applyMatrix identity (V2 42 17))
+    ),
+    ( "translateM moves point",
+      let m = translateM 10 20
+       in assertEqual "translate apply" (V2 15 25) (applyMatrix m (V2 5 5))
+    ),
+    ( "scaleM scales point",
+      let m = scaleM 3
+       in assertEqual "scale apply" (V2 15 30) (applyMatrix m (V2 5 10))
+    ),
+    ( "scaleXYM scales non-uniformly",
+      let m = scaleXYM 2 3
+       in assertEqual "scaleXY apply" (V2 10 30) (applyMatrix m (V2 5 10))
+    ),
+    ( "rotateM 90 degrees",
+      let m = rotateM 90
+          V2 rx ry = applyMatrix m (V2 1 0)
+       in do
+            _ <- assertApprox "rot90 x" colorTolerance 0.0 rx
+            assertApprox "rot90 y" colorTolerance 1.0 ry
+    ),
+    ( "rotateM 180 degrees",
+      let m = rotateM 180
+          V2 rx ry = applyMatrix m (V2 1 0)
+       in do
+            _ <- assertApprox "rot180 x" colorTolerance (-1.0) rx
+            assertApprox "rot180 y" colorTolerance 0.0 ry
+    ),
+    ( "compose identity is identity",
+      let m = composeMatrix identity identity
+       in assertEqual "id compose" identity m
+    ),
+    ( "compose translate then scale",
+      let m = composeMatrix (scaleM 2) (translateM 5 10)
+          V2 rx ry = applyMatrix m (V2 0 0)
+       in do
+            _ <- assertApprox "ts x" colorTolerance 10.0 rx
+            assertApprox "ts y" colorTolerance 20.0 ry
+    ),
+    ( "compose scale then translate",
+      let m = composeMatrix (translateM 5 10) (scaleM 2)
+          V2 rx ry = applyMatrix m (V2 3 4)
+       in do
+            _ <- assertApprox "st x" colorTolerance 11.0 rx
+            assertApprox "st y" colorTolerance 18.0 ry
+    ),
+    ( "skewXM identity at 0",
+      let m = skewXM 0
+       in assertEqual "skewX 0" (V2 5 10) (applyMatrix m (V2 5 10))
+    ),
+    ( "skewXM shifts x by y*tan(angle)",
+      let m = skewXM 45
+          V2 rx ry = applyMatrix m (V2 0 1)
+       in do
+            _ <- assertApprox "skewX x" colorTolerance 1.0 rx
+            assertApprox "skewX y" colorTolerance 1.0 ry
+    ),
+    ( "rotateM 360 is identity",
+      let m = rotateM 360
+          V2 rx ry = applyMatrix m (V2 7 13)
+       in do
+            _ <- assertApprox "rot360 x" colorTolerance 7.0 rx
+            assertApprox "rot360 y" colorTolerance 13.0 ry
     )
   ]
 
@@ -842,6 +1188,26 @@ testGradient =
     ( "evenStops empty",
       assertEqual "empty stops" ([] :: [GradientStop]) (evenStops [])
     ),
+    ( "oklabStops generates correct count",
+      assertEqual "oklab stops count" 5 (length (oklabStops 5 red blue))
+    ),
+    ( "oklabStops endpoints match",
+      let stops = oklabStops 3 red blue
+          Color fr fg fb _ = stopColor (head stops)
+          Color lr lg lb _ = stopColor (last stops)
+       in do
+            _ <- assertApprox "oklab first r" 0.01 1.0 fr
+            _ <- assertApprox "oklab first g" 0.01 0.0 fg
+            _ <- assertApprox "oklab first b" 0.01 0.0 fb
+            _ <- assertApprox "oklab last r" 0.01 0.0 lr
+            _ <- assertApprox "oklab last g" 0.01 0.0 lg
+            assertApprox "oklab last b" 0.01 1.0 lb
+    ),
+    ( "oklabStops midpoint differs from linear",
+      let oklabMid = stopColor (oklabStops 3 red green !! 1)
+          linearMid = stopColor (evenStops [red, lerp 0.5 red green, green] !! 1)
+       in assertTrue "oklab mid differs" (oklabMid /= linearMid)
+    ),
     ( "render gradient creates defs",
       let grad = linearGradient (V2 0 0) (V2 100 0) [stop 0 red, stop 1 blue]
           svg = renderElement (EFill (GradientFill grad) (rect 100 100))
@@ -879,6 +1245,505 @@ testText =
   ]
 
 -- ---------------------------------------------------------------------------
+-- Noise tests
+-- ---------------------------------------------------------------------------
+
+testNoise :: [(String, TestResult)]
+testNoise =
+  [ ( "perlin2D is deterministic",
+      let v1 = perlin2D 42 1.5 2.5
+          v2 = perlin2D 42 1.5 2.5
+       in assertEqual "perlin deterministic" v1 v2
+    ),
+    ( "perlin2D different seeds differ",
+      let v1 = perlin2D 0 5.5 7.3
+          v2 = perlin2D 12345 5.5 7.3
+       in assertTrue "perlin seeds" (v1 /= v2)
+    ),
+    ( "perlin2D in approximate range",
+      let v = perlin2D 0 3.7 8.2
+       in assertTrue "perlin range" (v >= -2.0 && v <= 2.0)
+    ),
+    ( "simplex2D is deterministic",
+      let v1 = simplex2D 42 1.5 2.5
+          v2 = simplex2D 42 1.5 2.5
+       in assertEqual "simplex deterministic" v1 v2
+    ),
+    ( "simplex2D different coords differ",
+      let v1 = simplex2D 42 1.7 3.2
+          v2 = simplex2D 42 8.4 6.1
+       in assertTrue "simplex coords" (v1 /= v2)
+    ),
+    ( "fbm returns finite value",
+      let v = fbm (perlin2D 0) 4 2.0 0.5 5.0 5.0
+       in assertTrue "fbm finite" (not (isNaN v) && not (isInfinite v))
+    ),
+    ( "fbm 1 octave equals base noise normalized",
+      let v = fbm (perlin2D 0) 1 2.0 0.5 3.0 4.0
+          base = perlin2D 0 3.0 4.0
+       in assertApprox "fbm 1 octave" epsilon base v
+    ),
+    ( "noisePath has correct segment count",
+      let path = noisePath (perlin2D 0) 10 100 50 0
+       in assertEqual "noisePath segs" 9 (length (pathSegments path))
+    ),
+    ( "noisePath is open",
+      let path = noisePath (perlin2D 0) 10 100 50 0
+       in assertTrue "noisePath open" (not (pathClosed path))
+    ),
+    ( "noiseClosedPath is closed",
+      let path = noiseClosedPath (perlin2D 0) 20 50 50 30 5
+       in assertTrue "noiseClosedPath closed" (pathClosed path)
+    ),
+    ( "noiseClosedPath has correct segment count",
+      let path = noiseClosedPath (perlin2D 0) 20 50 50 30 5
+       in assertEqual "noiseClosedPath segs" 19 (length (pathSegments path))
+    ),
+    ( "wobblePath preserves segment count",
+      let original = polylinePath [V2 0 0, V2 50 0, V2 100 0, V2 100 50]
+          wobbled = wobblePath (perlin2D 0) 5 original
+       in assertEqual "wobble segs" (length (pathSegments original)) (length (pathSegments wobbled))
+    ),
+    ( "wobblePath modifies points",
+      let original = polylinePath [V2 3.7 8.2, V2 50.3 12.1, V2 97.6 43.8]
+          wobbled = wobblePath (perlin2D 0) 10 original
+       in assertTrue "wobble changes" (pathStart original /= pathStart wobbled)
+    ),
+    ( "jitterPoints preserves count",
+      let pts = [V2 0 0, V2 10 10, V2 20 20]
+          jittered = jitterPoints (perlin2D 0) 5 pts
+       in assertEqual "jitter count" 3 (length jittered)
+    ),
+    ( "jitterPoints modifies points",
+      let pts = [V2 7.3 4.1, V2 22.8 15.6, V2 38.2 29.7]
+          jittered = jitterPoints (perlin2D 0) 10 pts
+       in assertTrue "jitter changes" (pts /= jittered)
+    ),
+    ( "voronoiCells correct count",
+      let cells = voronoiCells 42 4 3 100 100
+       in assertEqual "voronoi count" 12 (length cells)
+    ),
+    ( "voronoiCells within bounds",
+      let cells = voronoiCells 42 5 5 200 200
+       in assertTrue
+            "voronoi bounds"
+            ( all
+                (\(V2 vx vy) -> vx >= -50 && vx <= 250 && vy >= -50 && vy <= 250)
+                cells
+            )
+    ),
+    ( "voronoiEdges produces edges",
+      let edges = voronoiEdges 42 3 3 100 100
+       in assertTrue "voronoi edges" (not (null edges))
+    ),
+    ( "voronoiEdges correct count",
+      -- 3x3 grid: horizontal edges = 3*2 = 6, vertical edges = 2*3 = 6, total = 12
+      let edges = voronoiEdges 42 3 3 100 100
+       in assertEqual "voronoi edge count" 12 (length edges)
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Pattern tests
+-- ---------------------------------------------------------------------------
+
+testPattern :: [(String, TestResult)]
+testPattern =
+  [ ( "dotGrid produces group",
+      case dotGrid 10 2 red of
+        EGroup dots -> assertTrue "dotGrid non-empty" (not (null dots))
+        other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "dotGrid dots are circles",
+      case dotGrid 20 3 blue of
+        EGroup (first : _) -> case first of
+          ETranslate _ _ (EFill _ (ECircle r)) -> assertApprox "dot radius" epsilon 3 r
+          other -> Left ("unexpected dot: " ++ show other)
+        other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "lineGrid produces group",
+      case lineGrid 15 1 black of
+        EGroup elems -> assertTrue "lineGrid non-empty" (not (null elems))
+        other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "crosshatch produces group",
+      case crosshatch 10 0.5 black of
+        EGroup elems -> assertTrue "crosshatch non-empty" (not (null elems))
+        other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "checker produces group",
+      case checker 25 black white of
+        EGroup cells -> assertTrue "checker non-empty" (not (null cells))
+        other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "checker cell count matches grid",
+      case checker 50 black white of
+        EGroup cells -> assertEqual "checker cells" 4 (length cells)
+        other -> Left ("unexpected: " ++ show other)
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- PathOps tests
+-- ---------------------------------------------------------------------------
+
+-- | A simple square path for testing.
+squarePath :: Path
+squarePath = polygonPath [V2 0 0, V2 100 0, V2 100 100, V2 0 100]
+
+-- | A simple triangle path for testing.
+trianglePath :: Path
+trianglePath = polygonPath [V2 0 0, V2 100 0, V2 50 100]
+
+testPathOps :: [(String, TestResult)]
+testPathOps =
+  [ ( "reversePath preserves closure",
+      assertTrue "reverse closed" (pathClosed (reversePath squarePath))
+    ),
+    ( "reversePath preserves segment count",
+      assertEqual "reverse segs" (length (pathSegments squarePath)) (length (pathSegments (reversePath squarePath)))
+    ),
+    ( "reversePath changes start point",
+      assertTrue "reverse start" (pathStart squarePath /= pathStart (reversePath squarePath))
+    ),
+    ( "measurePath positive for non-empty path",
+      let len = measurePath squarePath
+       in assertTrue "measure positive" (len > 0)
+    ),
+    ( "measurePath square is ~400",
+      let len = measurePath squarePath
+       in assertApprox "measure square" 1.0 400.0 len
+    ),
+    ( "measurePath triangle is ~300",
+      -- Triangle: 100 + 100 + ~112 = ~312 (right triangle with legs 100, hypotenuse ~112)
+      let len = measurePath trianglePath
+       in assertTrue "measure triangle" (len > 200 && len < 400)
+    ),
+    ( "splitPathAt 0 gives empty first half",
+      let (before, _) = splitPathAt 0 squarePath
+       in assertTrue "split 0 before" (null (pathSegments before))
+    ),
+    ( "splitPathAt 1 gives empty second half",
+      let (_, after) = splitPathAt 1 squarePath
+       in assertTrue "split 1 after" (null (pathSegments after))
+    ),
+    ( "splitPathAt 0.5 produces two paths",
+      let (before, after) = splitPathAt 0.5 squarePath
+       in assertTrue "split 0.5" (not (null (pathSegments before)) && not (null (pathSegments after)))
+    ),
+    ( "subpath extracts section",
+      let sub = subpath 0.25 0.75 squarePath
+       in assertTrue "subpath non-empty" (not (null (pathSegments sub)))
+    ),
+    ( "offsetPath preserves segment structure",
+      let offset = offsetPath 5 squarePath
+       in assertTrue "offset non-empty" (not (null (pathSegments offset)))
+    ),
+    ( "offsetPath changes perimeter",
+      let original = measurePath squarePath
+          offset = measurePath (offsetPath 10 squarePath)
+       in assertTrue "offset changes" (abs (offset - original) > 1.0)
+    ),
+    ( "simplifyPath reduces points on straight line",
+      let straightish = polylinePath [V2 0 0, V2 10 0.001, V2 20 0, V2 30 0.001, V2 40 0]
+          simplified = simplifyPath 1 straightish
+       in assertTrue "simplify reduces" (length (pathSegments simplified) < length (pathSegments straightish))
+    ),
+    ( "simplifyPath preserves endpoints",
+      let path = polylinePath [V2 0 0, V2 50 1, V2 100 0]
+          simplified = simplifyPath 2 path
+       in assertEqual "simplify start" (V2 0 0) (pathStart simplified)
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Boolean tests
+-- ---------------------------------------------------------------------------
+
+-- | Two overlapping squares for boolean tests.
+squareA :: Path
+squareA = polygonPath [V2 0 0, V2 100 0, V2 100 100, V2 0 100]
+
+squareB :: Path
+squareB = polygonPath [V2 50 50, V2 150 50, V2 150 150, V2 50 150]
+
+testBoolean :: [(String, TestResult)]
+testBoolean =
+  [ ( "pathToPolygon includes all vertices",
+      let poly = pathToPolygon squarePath
+       in assertTrue "polygon verts" (length poly >= 4)
+    ),
+    ( "polygonToPath creates closed path",
+      let path = polygonToPath [V2 0 0, V2 10 0, V2 10 10]
+       in assertTrue "polygon closed" (pathClosed path)
+    ),
+    ( "polygonArea of unit square",
+      let area = polygonArea [V2 0 0, V2 1 0, V2 1 1, V2 0 1]
+       in assertApprox "unit area" 0.01 1.0 area
+    ),
+    ( "polygonArea of 100x100 square",
+      let area = polygonArea [V2 0 0, V2 100 0, V2 100 100, V2 0 100]
+       in assertApprox "100x100 area" 1.0 10000.0 area
+    ),
+    ( "polygonArea clockwise is negative",
+      let area = polygonArea [V2 0 0, V2 0 1, V2 1 1, V2 1 0]
+       in assertTrue "cw area neg" (area < 0)
+    ),
+    ( "pointInPolygon center",
+      let poly = [V2 0 0, V2 100 0, V2 100 100, V2 0 100]
+       in assertTrue "center inside" (pointInPolygon (V2 50 50) poly)
+    ),
+    ( "pointInPolygon outside",
+      let poly = [V2 0 0, V2 100 0, V2 100 100, V2 0 100]
+       in assertTrue "outside" (not (pointInPolygon (V2 200 200) poly))
+    ),
+    ( "intersection of overlapping squares is non-empty",
+      let result = intersection squareA squareB
+       in assertTrue "intersection non-empty" (not (null (pathSegments result)))
+    ),
+    ( "intersection is closed",
+      let result = intersection squareA squareB
+       in assertTrue "intersection closed" (pathClosed result)
+    ),
+    ( "union of overlapping squares is non-empty",
+      let result = union squareA squareB
+       in assertTrue "union non-empty" (not (null (pathSegments result)))
+    ),
+    ( "union is closed",
+      let result = union squareA squareB
+       in assertTrue "union closed" (pathClosed result)
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Parse tests
+-- ---------------------------------------------------------------------------
+
+testParse :: [(String, TestResult)]
+testParse =
+  [ ( "parseElement empty is EEmpty",
+      assertEqual "parse empty" (Right EEmpty) (parseElement (T.pack ""))
+    ),
+    ( "parseElement circle",
+      case parseElement (T.pack "<circle r=\"50\"/>") of
+        Right (ECircle r) -> assertApprox "circle r" epsilon 50 r
+        other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "parseElement circle with cx cy",
+      case parseElement (T.pack "<circle cx=\"10\" cy=\"20\" r=\"5\"/>") of
+        Right (ETranslate tx ty (ECircle r)) -> do
+          _ <- assertApprox "cx" epsilon 10 tx
+          _ <- assertApprox "cy" epsilon 20 ty
+          assertApprox "r" epsilon 5 r
+        other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "parseElement rect",
+      case parseElement (T.pack "<rect width=\"100\" height=\"50\"/>") of
+        Right (ERect w h) -> do
+          _ <- assertApprox "w" epsilon 100 w
+          assertApprox "h" epsilon 50 h
+        other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "parseElement rounded rect",
+      case parseElement (T.pack "<rect width=\"100\" height=\"50\" rx=\"10\" ry=\"5\"/>") of
+        Right (ERoundRect w h rx ry) -> do
+          _ <- assertApprox "w" epsilon 100 w
+          _ <- assertApprox "h" epsilon 50 h
+          _ <- assertApprox "rx" epsilon 10 rx
+          assertApprox "ry" epsilon 5 ry
+        other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "parseElement line",
+      case parseElement (T.pack "<line x1=\"0\" y1=\"0\" x2=\"100\" y2=\"50\"/>") of
+        Right (ELine (V2 x1 y1) (V2 x2 y2)) -> do
+          _ <- assertApprox "x1" epsilon 0 x1
+          _ <- assertApprox "y1" epsilon 0 y1
+          _ <- assertApprox "x2" epsilon 100 x2
+          assertApprox "y2" epsilon 50 y2
+        other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "parseElement path with line",
+      case parseElement (T.pack "<path d=\"M10 20 L30 40\"/>") of
+        Right (EPath (Path (V2 sx sy) segs False)) -> do
+          _ <- assertApprox "start x" epsilon 10 sx
+          _ <- assertApprox "start y" epsilon 20 sy
+          assertEqual "seg count" 1 (length segs)
+        other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "parseElement closed path",
+      case parseElement (T.pack "<path d=\"M0 0 L100 0 L100 100 Z\"/>") of
+        Right (EPath (Path _ segs True)) ->
+          assertEqual "seg count" 2 (length segs)
+        other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "parseElement path with cubic",
+      case parseElement (T.pack "<path d=\"M0 0 C10 20 30 40 50 50\"/>") of
+        Right (EPath (Path _ segs False)) ->
+          case segs of
+            [CubicTo {}] -> Right ()
+            _ -> Left ("unexpected segs: " ++ show segs)
+        other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "parseElement group",
+      case parseElement (T.pack "<g><circle r=\"5\"/><rect width=\"10\" height=\"10\"/></g>") of
+        Right (EGroup children) ->
+          assertEqual "group children" 2 (length children)
+        other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "parseElement fill attribute",
+      case parseElement (T.pack "<circle r=\"5\" fill=\"#ff0000\"/>") of
+        Right (EFill (SolidFill (Color r g b _)) (ECircle _)) -> do
+          _ <- assertApprox "fill r" 0.01 1.0 r
+          _ <- assertApprox "fill g" 0.01 0.0 g
+          assertApprox "fill b" 0.01 0.0 b
+        other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "parseElement fill none",
+      case parseElement (T.pack "<circle r=\"5\" fill=\"none\"/>") of
+        Right (EFill NoFill (ECircle _)) -> Right ()
+        other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "parseElement transform translate",
+      case parseElement (T.pack "<circle r=\"5\" transform=\"translate(10,20)\"/>") of
+        Right (ETranslate tx ty (ECircle _)) -> do
+          _ <- assertApprox "tx" epsilon 10 tx
+          assertApprox "ty" epsilon 20 ty
+        other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "parseSvg document",
+      case parseSvg (T.pack "<svg width=\"200\" height=\"100\"><circle r=\"50\"/></svg>") of
+        Right doc -> do
+          _ <- assertApprox "doc width" epsilon 200 (docWidth doc)
+          assertApprox "doc height" epsilon 100 (docHeight doc)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parseSvg with viewBox",
+      case parseSvg (T.pack "<svg width=\"200\" height=\"100\" viewBox=\"0 0 400 200\"><circle r=\"5\"/></svg>") of
+        Right doc ->
+          case docViewBox doc of
+            Just (ViewBox mx my vw vh) -> do
+              _ <- assertApprox "vb minX" epsilon 0 mx
+              _ <- assertApprox "vb minY" epsilon 0 my
+              _ <- assertApprox "vb w" epsilon 400 vw
+              assertApprox "vb h" epsilon 200 vh
+            Nothing -> Left "expected viewBox"
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "round-trip circle preserves structure",
+      let original = fill red (circle 50)
+          svg = renderElement original
+       in case parseElement svg of
+            Right parsed ->
+              case parsed of
+                EFill (SolidFill _) (ECircle r) ->
+                  assertApprox "round-trip r" epsilon 50 r
+                other -> Left ("unexpected round-trip: " ++ show other)
+            Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "round-trip rect preserves dimensions",
+      let original = rect 100 50
+          svg = renderElement original
+       in case parseElement svg of
+            Right (ERect w h) -> do
+              _ <- assertApprox "round-trip w" epsilon 100 w
+              assertApprox "round-trip h" epsilon 50 h
+            other -> Left ("unexpected: " ++ show other)
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Accessibility tests
+-- ---------------------------------------------------------------------------
+
+testAccessibility :: [(String, TestResult)]
+testAccessibility =
+  [ ( "title wraps element",
+      case title (T.pack "My Circle") (circle 50) of
+        ETitle t (ECircle r) -> do
+          _ <- assertEqual "title text" (T.pack "My Circle") t
+          assertApprox "title r" epsilon 50 r
+        other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "desc wraps element",
+      case desc (T.pack "A big circle") (circle 50) of
+        EDesc d (ECircle r) -> do
+          _ <- assertEqual "desc text" (T.pack "A big circle") d
+          assertApprox "desc r" epsilon 50 r
+        other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "render title produces title tag",
+      let svg = renderElement (title (T.pack "Test Title") (circle 5))
+       in assertContains "title tag" (T.pack "<title>Test Title</title>") svg
+    ),
+    ( "render desc produces desc tag",
+      let svg = renderElement (desc (T.pack "Test Description") (rect 10 20))
+       in assertContains "desc tag" (T.pack "<desc>Test Description</desc>") svg
+    ),
+    ( "title escapes XML",
+      let svg = renderElement (title (T.pack "A & B < C") (circle 5))
+       in assertContains "escaped title" (T.pack "&amp;") svg
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Optimization tests
+-- ---------------------------------------------------------------------------
+
+testOptimize :: [(String, TestResult)]
+testOptimize =
+  [ ( "optimize collapses nested translates",
+      let el = ETranslate 10 20 (ETranslate 30 40 (ECircle 5))
+          opt = optimizeElement el
+       in assertEqual "merged translate" (ETranslate 40 60 (ECircle 5)) opt
+    ),
+    ( "optimize removes identity translate",
+      let el = ETranslate 0 0 (ECircle 5)
+          opt = optimizeElement el
+       in assertEqual "no translate" (ECircle 5) opt
+    ),
+    ( "optimize collapses nested scales",
+      let el = EScale 2 3 (EScale 4 5 (ECircle 5))
+          opt = optimizeElement el
+       in assertEqual "merged scale" (EScale 8 15 (ECircle 5)) opt
+    ),
+    ( "optimize removes identity scale",
+      let el = EScale 1 1 (ECircle 5)
+          opt = optimizeElement el
+       in assertEqual "no scale" (ECircle 5) opt
+    ),
+    ( "optimize removes identity opacity",
+      let el = EOpacity 1 (ECircle 5)
+          opt = optimizeElement el
+       in assertEqual "no opacity" (ECircle 5) opt
+    ),
+    ( "optimize flattens singleton group",
+      let el = EGroup [ECircle 5]
+          opt = optimizeElement el
+       in assertEqual "singleton" (ECircle 5) opt
+    ),
+    ( "optimize removes EEmpty from groups",
+      let el = EGroup [EEmpty, ECircle 5, EEmpty]
+          opt = optimizeElement el
+       in assertEqual "no empties" (ECircle 5) opt
+    ),
+    ( "optimize empty group becomes EEmpty",
+      let el = EGroup [EEmpty, EEmpty]
+          opt = optimizeElement el
+       in assertEqual "all empty" EEmpty opt
+    ),
+    ( "optimize preserves non-identity translate",
+      let el = ETranslate 10 20 (ECircle 5)
+          opt = optimizeElement el
+       in assertEqual "kept translate" (ETranslate 10 20 (ECircle 5)) opt
+    ),
+    ( "optimize deep nesting",
+      let el = ETranslate 0 0 (EScale 1 1 (EOpacity 1 (ECircle 5)))
+          opt = optimizeElement el
+       in assertEqual "deep nesting" (ECircle 5) opt
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
 -- SVG file output test
 -- ---------------------------------------------------------------------------
 
@@ -906,3 +1771,7 @@ testSvgFile = do
 
 epsilon :: Double
 epsilon = 1.0e-10
+
+-- | Tolerance for color space conversions (gamma curves introduce small errors).
+colorTolerance :: Double
+colorTolerance = 1.0e-6
