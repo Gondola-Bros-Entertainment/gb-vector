@@ -88,7 +88,7 @@ import GBVector.Types
     ViewBox (..),
   )
 import System.Exit (exitFailure, exitSuccess)
-import System.IO (hFlush, stdout)
+import System.IO (hClose, hFlush, openTempFile, stdout)
 
 -- ---------------------------------------------------------------------------
 -- Test harness
@@ -1768,7 +1768,8 @@ testOptimize =
 testSvgFile :: IO [(String, TestResult)]
 testSvgFile = do
   let doc = document 200 200 (fill red (circle 50))
-      path = "/tmp/gb-vector-test.svg"
+  (path, h) <- openTempFile "." "gb-vector-test.svg"
+  hClose h
   writeSvg path doc
   content <- TIO.readFile path
   return
