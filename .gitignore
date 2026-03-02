@@ -7,5 +7,6 @@ dist-newstyle/
 cabal.project.local
 *~
 .DS_Store
+gb-vector-test*.svg
 .claude/
 CLAUDE.md
