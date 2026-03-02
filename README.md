@@ -264,6 +264,7 @@ parseElement :: Text -> Either ParseError Element
 import Data.Function ((&))
 import GBVector.Color (black, gold, hex, red, white)
 import GBVector.Compose (background, document, group)
+import GBVector.Element (Element (EPath))
 import GBVector.Gradient (evenStops, linearGradient)
 import GBVector.Path (buildPath, closePath, cubicTo, lineTo, startAt)
 import GBVector.SVG (writeSvg)
@@ -309,7 +310,7 @@ Requires [GHCup](https://www.haskell.org/ghcup/) with GHC >= 9.6.
 
 ```bash
 cabal build                              # Build library
-cabal test                               # Run tests (282 pure tests)
+cabal test                               # Run tests (285 pure tests)
 cabal build --ghc-options="-Werror"      # Warnings as errors
 cabal haddock                            # Generate docs (100% coverage)
 ```
