@@ -1,4 +1,4 @@
--- | Core geometry types for SVG vector graphics.
+-- | Core geometry types for SVG generation.
 --
 -- All types use strict fields. 'V2' is the fundamental 2D point/vector.
 -- 'Segment' represents a single path command (line, cubic, quad, arc).

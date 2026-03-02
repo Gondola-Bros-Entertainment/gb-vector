@@ -17,7 +17,7 @@
 
 ## Overview
 
-gb-vector is a pure Haskell library for generating SVG vector graphics. Define shapes, style them, compose them, and render to SVG — all with pure functions.
+gb-vector is a pure Haskell library for generating SVG. Define shapes, style them, compose them, and render — all with pure functions.
 
 Companion to [gb-sprite](https://github.com/Gondola-Bros-Entertainment/gb-sprite) (procedural raster) and [gb-synth](https://github.com/Gondola-Bros-Entertainment/gb-synth) (procedural audio).
 
