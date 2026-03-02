@@ -7,7 +7,7 @@ Initial release.
 ### Core Types
 - `V2` 2D vector, `Segment` (line/cubic/quad/arc), `Path` (closed/open)
 - `Color` type with RGBA in `[0, 1]` — `rgb`, `rgba`, `rgb8`, `hex` constructors
-- 30+ named colors, `lerp`, `withAlpha`, `toHex`
+- 43 named colors, `lerp`, `withAlpha`, `toHex`
 - `hsl`, `hsla` — HSL color construction
 - Oklab perceptual color space: `toOklab`, `fromOklab`, `lerpOklab`
 - Color adjustments: `lighten`, `darken`, `saturate`, `desaturate`, `invert`
@@ -42,7 +42,8 @@ Initial release.
 - Matrix constructors: `translateM`, `rotateM`, `scaleM`, `scaleXYM`, `skewXM`, `skewYM`
 
 ### Style
-- `fill`, `stroke`, `strokeEx`, `opacity`, `fillNone`, `fillRule`
+- `fill`, `fillGradient`, `stroke`, `strokeEx`, `dashedStroke`, `defaultStrokeConfig`
+- `opacity`, `fillNone`, `fillRule`
 - `clip`, `mask`, `blur`, `dropShadow`, `withId`, `use`
 
 ### Noise
