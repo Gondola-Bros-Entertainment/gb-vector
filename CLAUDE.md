@@ -29,4 +29,4 @@
 
 ## Context
 
-Pure Haskell SVG vector graphics library. Third library in the Gondola Bros Hackage ecosystem (`gb-sprite`: raster, `gb-synth`: audio, `gb-vector`: vector). Generates SVG from a composable `Element` tree — no XML library, no IO, just pure functions building `Text`.
+Pure Haskell SVG generation library. Third library in the Gondola Bros Hackage ecosystem (`gb-sprite`: raster, `gb-synth`: audio, `gb-vector`: vector). Generates SVG from a composable `Element` tree — no XML library, no IO, just pure functions building `Text`.

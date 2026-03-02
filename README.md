@@ -1,6 +1,6 @@
 <div align="center">
 <h1>gb-vector</h1>
-<p><strong>Pure Haskell SVG Vector Graphics</strong></p>
+<p><strong>Pure Haskell SVG Generation</strong></p>
 <p>Composable Element tree — no XML library, no IO, just pure functions building Text.</p>
 <p><a href="#overview">Overview</a> · <a href="#architecture">Architecture</a> · <a href="#usage">Usage</a> · <a href="#api">API</a> · <a href="#example">Example</a></p>
 <p>

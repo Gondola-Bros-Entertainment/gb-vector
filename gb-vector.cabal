@@ -2,9 +2,9 @@ cabal-version: 3.0
 name:          gb-vector
 version:       0.1.0.0
 stability:     experimental
-synopsis:      Pure Haskell SVG vector graphics
+synopsis:      Pure Haskell SVG generation
 description:
-  A pure Haskell library for generating SVG vector graphics.
+  A pure Haskell library for generating SVG.
   Composable @Element@ tree — style and transforms are constructors
   that wrap children. No XML library, no IO, just pure functions
   building @Text@. Dependencies: @base@ + @text@ only.
