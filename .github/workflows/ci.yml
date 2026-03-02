@@ -48,7 +48,7 @@ jobs:
       - run: cabal check
 
   build:
-    name: Build (GHC ${{ matrix.ghc }}, ${{ matrix.os }})
+    name: Build & Test (GHC ${{ matrix.ghc }}, ${{ matrix.os }})
     needs: [lint, format, cabal-check]
     runs-on: ${{ matrix.os }}
     strategy:
@@ -70,52 +70,5 @@ jobs:
           key: ${{ runner.os }}-ghc-${{ matrix.ghc }}-${{ hashFiles('gb-vector.cabal') }}
           restore-keys: ${{ runner.os }}-ghc-${{ matrix.ghc }}-
       - run: cabal build --only-dependencies
-      - run: cabal build
-
-  test:
-    name: Test (GHC ${{ matrix.ghc }}, ${{ matrix.os }})
-    needs: build
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        ghc: ['9.6.7', '9.8.4', '9.10.1']
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: haskell-actions/setup@v2
-        with:
-          ghc-version: ${{ matrix.ghc }}
-          cabal-version: '3.14'
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cabal/store
-            dist-newstyle
-          key: ${{ runner.os }}-ghc-${{ matrix.ghc }}-${{ hashFiles('gb-vector.cabal') }}
-          restore-keys: ${{ runner.os }}-ghc-${{ matrix.ghc }}-
-      - run: cabal test --enable-tests
-
-  warnings:
-    name: Warnings (GHC ${{ matrix.ghc }}, ${{ matrix.os }})
-    needs: build
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        ghc: ['9.6.7', '9.8.4', '9.10.1']
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: haskell-actions/setup@v2
-        with:
-          ghc-version: ${{ matrix.ghc }}
-          cabal-version: '3.14'
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cabal/store
-            dist-newstyle
-          key: ${{ runner.os }}-ghc-${{ matrix.ghc }}-${{ hashFiles('gb-vector.cabal') }}
-          restore-keys: ${{ runner.os }}-ghc-${{ matrix.ghc }}-
       - run: cabal build --ghc-options="-Wall -Werror"
+      - run: cabal test --enable-tests
