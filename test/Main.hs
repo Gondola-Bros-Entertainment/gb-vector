@@ -3327,7 +3327,7 @@ testParseCoverage2 =
       case parseElement (T.pack "<path d=\"M 50 50 c 10 20 30 40 50 0\" />") of
         Right (EPath p) ->
           case pathSegments p of
-            [CubicTo c1 c2 pt] -> do
+            [CubicTo c1 _c2 pt] -> do
               let V2 cx1 _ = c1
               _ <- assertApprox "c1x offset from 50" 0.1 60 cx1
               let V2 px _ = pt
@@ -3644,7 +3644,9 @@ testDerivedCoverage2 =
        in do
             _ <- assertTrue "all show" (not (any (null . show) segs))
             _ <- assertTrue "eq self" (all (\s -> s == s) segs)
-            assertTrue "differ" (head segs /= segs !! 1)
+            case segs of
+              (s0 : s1 : _) -> assertTrue "differ" (s0 /= s1)
+              _ -> Left "expected at least 2 segments"
     ),
     ( "Path Show/Eq",
       let p1 = buildPath (startAt (V2 0 0) >> lineTo (V2 10 0))
