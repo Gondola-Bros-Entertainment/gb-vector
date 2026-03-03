@@ -7,6 +7,17 @@
 -- This is a practical polygon-clipping implementation using the
 -- Sutherland-Hodgman algorithm for intersection/clipping, with
 -- union and difference built on top.
+--
+-- __Limitations:__
+--
+-- * 'intersection' and 'difference' use Sutherland-Hodgman, which
+--   requires the /clip/ polygon (second argument) to be __convex__.
+--   Concave clip polygons will produce incorrect results.
+-- * 'union' of non-overlapping polygons concatenates their vertices
+--   into a single path. This renders correctly with SVG even-odd fill
+--   but is not a true geometric union (no outer-boundary tracing).
+-- * 'intersectEpsilon' is an absolute tolerance, not scale-aware.
+--   Very large or very small coordinate spaces may need adjustment.
 module GBVector.Boolean
   ( -- * Boolean Operations
     union,
@@ -22,8 +33,8 @@ module GBVector.Boolean
   )
 where
 
-import GBVector.Bezier (flattenCubic)
-import GBVector.Types (Path (..), Segment (..), V2 (..))
+import GBVector.Bezier (arcToCubics, flattenCubic)
+import GBVector.Types (ArcParams (..), Path (..), Segment (..), V2 (..))
 
 -- ---------------------------------------------------------------------------
 -- Boolean Operations
@@ -47,6 +58,8 @@ union pathA pathB =
 
 -- | Intersection of two closed paths — the region covered by both.
 -- Uses the Sutherland-Hodgman clipping algorithm.
+--
+-- __Note:__ @pathB@ (the clip polygon) must be convex for correct results.
 intersection :: Path -> Path -> Path
 intersection pathA pathB =
   let polyA = pathToPolygon pathA
@@ -56,6 +69,8 @@ intersection pathA pathB =
 
 -- | Difference of two closed paths — pathA minus pathB.
 -- Returns the region of A not covered by B.
+--
+-- __Note:__ @pathB@ (the clip polygon) must be convex for correct results.
 difference :: Path -> Path -> Path
 difference pathA pathB =
   let polyA = pathToPolygon pathA
@@ -212,8 +227,14 @@ flattenSeg _ (from, QuadTo ctrl to) =
   let c1 = lerpV2 (2.0 / 3.0) from ctrl
       c2 = lerpV2 (2.0 / 3.0) to ctrl
    in flattenCubic from c1 c2 to boolFlattenTolerance
-flattenSeg _ (from, ArcTo _ to) =
-  flattenCubic from from to to boolFlattenTolerance
+flattenSeg _ (from, ArcTo params to) =
+  let cubics = arcToCubics from (arcRx params) (arcRy params) (arcRotation params) (arcLargeArc params) (arcSweep params) to
+   in concatMap (\(s, c1, c2, end) -> flattenCubic s c1 c2 end boolFlattenTolerance) (withStarts from cubics)
+
+-- | Pair each cubic segment from 'arcToCubics' with its starting point.
+withStarts :: V2 -> [(V2, V2, V2)] -> [(V2, V2, V2, V2)]
+withStarts _ [] = []
+withStarts start ((c1, c2, end) : rest) = (start, c1, c2, end) : withStarts end rest
 
 -- | Linear interpolation.
 lerpV2 :: Double -> V2 -> V2 -> V2
@@ -229,5 +250,6 @@ boolFlattenTolerance :: Double
 boolFlattenTolerance = 0.5
 
 -- | Epsilon for parallel edge detection.
+-- This is an absolute tolerance — not scale-aware.
 intersectEpsilon :: Double
 intersectEpsilon = 1.0e-10

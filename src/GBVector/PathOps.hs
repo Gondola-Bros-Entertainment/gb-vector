@@ -22,8 +22,8 @@ module GBVector.PathOps
   )
 where
 
-import GBVector.Bezier (cubicLength, flattenCubic)
-import GBVector.Types (Path (..), Segment (..), V2 (..))
+import GBVector.Bezier (arcToCubics, cubicLength, flattenCubic)
+import GBVector.Types (ArcParams (..), Path (..), Segment (..), V2 (..))
 
 -- ---------------------------------------------------------------------------
 -- Reversal
@@ -84,7 +84,7 @@ subpath t0 t1 path
   | t0 >= t1 = emptyPathAt (pathStart path)
   | otherwise =
       let (_, afterT0) = splitPathAt t0 path
-          adjustedT1 = if t0 >= 1 then 0 else (t1 - t0) / (1 - t0)
+          adjustedT1 = if t0 >= 1 then 0 else min 1.0 ((t1 - t0) / (1 - t0))
           (result, _) = splitPathAt adjustedT1 afterT0
        in result
 
@@ -153,7 +153,9 @@ segmentLength from seg = case seg of
     let c1 = lerpV (2.0 / 3.0) from ctrl
         c2 = lerpV (2.0 / 3.0) to ctrl
      in cubicLength from c1 c2 to
-  ArcTo _ to -> dist from to -- Rough approximation
+  ArcTo params to ->
+    let cubics = arcToCubics from (arcRx params) (arcRy params) (arcRotation params) (arcLargeArc params) (arcSweep params) to
+     in sumArcCubicLengths from cubics
 
 -- | Fold over segments accumulating a value, tracking the current point.
 foldlSegments :: V2 -> Double -> [Segment] -> Double
@@ -170,7 +172,9 @@ flattenSegment _ (from, QuadTo ctrl to) =
   let c1 = lerpV (2.0 / 3.0) from ctrl
       c2 = lerpV (2.0 / 3.0) to ctrl
    in flattenCubic from c1 c2 to flattenTolerance
-flattenSegment _ (from, ArcTo _ to) = flattenCubic from from to to flattenTolerance
+flattenSegment _ (from, ArcTo params to) =
+  let cubics = arcToCubics from (arcRx params) (arcRy params) (arcRotation params) (arcLargeArc params) (arcSweep params) to
+   in concatMap (\(s, c1, c2, end) -> flattenCubic s c1 c2 end flattenTolerance) (arcWithStarts from cubics)
 
 -- | Reverse a segment. Swaps control points for curves.
 reverseSegment :: Segment -> Segment
@@ -327,6 +331,17 @@ pointLineDistance (V2 x1 y1) (V2 x2 y2) (V2 px py) =
 -- ---------------------------------------------------------------------------
 -- Internal — Geometry
 -- ---------------------------------------------------------------------------
+
+-- | Sum lengths of cubic segments from arc conversion.
+sumArcCubicLengths :: V2 -> [(V2, V2, V2)] -> Double
+sumArcCubicLengths _ [] = 0
+sumArcCubicLengths start ((c1, c2, end) : rest) =
+  cubicLength start c1 c2 end + sumArcCubicLengths end rest
+
+-- | Pair each cubic segment from 'arcToCubics' with its starting point.
+arcWithStarts :: V2 -> [(V2, V2, V2)] -> [(V2, V2, V2, V2)]
+arcWithStarts _ [] = []
+arcWithStarts start ((c1, c2, end) : rest) = (start, c1, c2, end) : arcWithStarts end rest
 
 -- | Euclidean distance between two points.
 dist :: V2 -> V2 -> Double

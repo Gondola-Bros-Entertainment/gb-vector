@@ -98,11 +98,17 @@ skewY = ESkewY
 --   | 0 0  1 |   | 1 |   |              1 |
 -- @
 data Matrix = Matrix
-  { matA :: !Double,
+  { -- | Scale X / cos component.
+    matA :: !Double,
+    -- | Shear Y / sin component.
     matB :: !Double,
+    -- | Shear X / negative sin component.
     matC :: !Double,
+    -- | Scale Y / cos component.
     matD :: !Double,
+    -- | Translation X.
     matTx :: !Double,
+    -- | Translation Y.
     matTy :: !Double
   }
   deriving (Show, Eq)

@@ -8,8 +8,8 @@ import Data.Maybe (isNothing)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import GBVector.Bezier (cubicBBox, cubicLength, evalCubic, evalQuad, flattenCubic, splitCubicAt, subdivideCubic)
-import GBVector.Boolean (intersection, pathToPolygon, pointInPolygon, polygonArea, polygonToPath, union)
+import GBVector.Bezier (arcToCubics, cubicBBox, cubicLength, evalCubic, evalQuad, flattenCubic, splitCubicAt, subdivideCubic)
+import GBVector.Boolean (difference, intersection, pathToPolygon, pointInPolygon, polygonArea, polygonToPath, union)
 import GBVector.Color
   ( Color (..),
     black,
@@ -78,7 +78,8 @@ import GBVector.Transform
     translateM,
   )
 import GBVector.Types
-  ( FillRule (..),
+  ( ArcParams (..),
+    FillRule (..),
     LineCap (..),
     LineJoin (..),
     Path (..),
@@ -87,6 +88,7 @@ import GBVector.Types
     V2 (..),
     ViewBox (..),
   )
+import System.Directory (removeFile)
 import System.Exit (exitFailure, exitSuccess)
 import System.IO (hClose, hFlush, openTempFile, stdout)
 
@@ -194,6 +196,7 @@ main = do
         ++ testParse
         ++ testAccessibility
         ++ testOptimize
+        ++ testArcOps
         ++ svgFileTests
     )
 
@@ -1762,6 +1765,102 @@ testOptimize =
   ]
 
 -- ---------------------------------------------------------------------------
+-- Arc operations and audit fix tests
+-- ---------------------------------------------------------------------------
+
+testArcOps :: [(String, TestResult)]
+testArcOps =
+  [ ( "arc flattening in boolean ops follows curve",
+      -- A semicircular arc from (100,0) to (-100,0) should produce polygon
+      -- points that are far from the straight line between endpoints.
+      let arcPath =
+            Path
+              { pathStart = V2 100 0,
+                pathSegments = [ArcTo (ArcParams 100 100 0 True True) (V2 (-100) 0)],
+                pathClosed = True
+              }
+          poly = pathToPolygon arcPath
+          -- The topmost Y coordinate should be near 100 (top of the arc),
+          -- not near 0 (the straight line).
+          maxY = maximum (map (\(V2 _ y) -> y) poly)
+       in assertTrue "arc polygon follows curve" (maxY > 50)
+    ),
+    ( "arc path measurement exceeds straight-line distance",
+      -- A semicircular arc of radius 100 has length pi*100 ~ 314.
+      -- Straight-line distance from (100,0) to (-100,0) is 200.
+      let arcPath =
+            Path
+              { pathStart = V2 100 0,
+                pathSegments = [ArcTo (ArcParams 100 100 0 True True) (V2 (-100) 0)],
+                pathClosed = False
+              }
+          len = measurePath arcPath
+       in assertTrue "arc length > straight" (len > 250)
+    ),
+    ( "boolean intersection with arc-containing path is non-empty",
+      let arcPath =
+            Path
+              { pathStart = V2 0 0,
+                pathSegments =
+                  [ LineTo (V2 100 0),
+                    ArcTo (ArcParams 50 50 0 False True) (V2 100 100),
+                    LineTo (V2 0 100)
+                  ],
+                pathClosed = True
+              }
+          squareClip = polygonPath [V2 25 25, V2 75 25, V2 75 75, V2 25 75]
+          result = intersection arcPath squareClip
+       in assertTrue "arc intersection non-empty" (not (null (pathSegments result)))
+    ),
+    ( "subpath near t=1 does not overflow",
+      let path = polylinePath [V2 0 0, V2 100 0, V2 200 0]
+          sub = subpath 0.999 1.0 path
+       in assertTrue "subpath near 1" (measurePath sub >= 0)
+    ),
+    ( "saturate near-gray color stays in [0,1]",
+      let nearGray = rgb 0.5 0.5 0.5
+          boosted = saturate 1.0 nearGray
+          (Color r g b a) = boosted
+       in assertTrue
+            "saturate gray in gamut"
+            (r >= 0 && r <= 1 && g >= 0 && g <= 1 && b >= 0 && b <= 1 && a >= 0 && a <= 1)
+    ),
+    ( "saturate preserves alpha",
+      let Color _ _ _ a = saturate 0.5 (rgba 1 0 0 0.3)
+       in assertApprox "saturate alpha" colorTolerance 0.3 a
+    ),
+    ( "noise determinism preserved after gradient change",
+      -- Verify perlin and simplex are still deterministic with 8-direction table.
+      let pv1 = perlin2D 42 3.14 2.71
+          pv2 = perlin2D 42 3.14 2.71
+          sv1 = simplex2D 42 3.14 2.71
+          sv2 = simplex2D 42 3.14 2.71
+       in do
+            _ <- assertEqual "perlin still deterministic" pv1 pv2
+            assertEqual "simplex still deterministic" sv1 sv2
+    ),
+    ( "arcToCubics produces segments for valid arc",
+      let cubics = arcToCubics (V2 0 0) 50 50 0 False True (V2 50 50)
+       in assertTrue "arcToCubics non-empty" (not (null cubics))
+    ),
+    ( "union with arc path is closed",
+      let arcPath =
+            Path
+              { pathStart = V2 0 0,
+                pathSegments =
+                  [ ArcTo (ArcParams 100 100 0 True True) (V2 200 0),
+                    LineTo (V2 200 200),
+                    LineTo (V2 0 200)
+                  ],
+                pathClosed = True
+              }
+          otherSquare = polygonPath [V2 50 50, V2 150 50, V2 150 150, V2 50 150]
+          result = union arcPath otherSquare
+       in assertTrue "arc union closed" (pathClosed result)
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
 -- SVG file output test
 -- ---------------------------------------------------------------------------
 
@@ -1772,6 +1871,7 @@ testSvgFile = do
   hClose h
   writeSvg path doc
   content <- TIO.readFile path
+  removeFile path
   return
     [ ( "writeSvg produces valid SVG",
         assertContains "svg tag" (T.pack "<svg") content

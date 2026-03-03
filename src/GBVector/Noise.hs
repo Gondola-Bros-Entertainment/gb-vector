@@ -316,12 +316,17 @@ lerpN :: Double -> Double -> Double -> Double
 lerpN t a b = a + t * (b - a)
 
 -- | 2D gradient from a hash value.
+-- Uses 8 directions for better isotropy than the minimal 4-direction table.
 grad2D :: Int -> Double -> Double -> Double
-grad2D hash gx gy = case hash .&. 3 of
+grad2D hash gx gy = case hash .&. 7 of
   0 -> gx + gy
   1 -> negate gx + gy
   2 -> gx - gy
-  _ -> negate gx - gy
+  3 -> negate gx - gy
+  4 -> gx
+  5 -> negate gx
+  6 -> gy
+  _ -> negate gy
 
 -- ---------------------------------------------------------------------------
 -- Internal — Simplex Helpers

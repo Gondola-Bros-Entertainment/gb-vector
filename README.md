@@ -27,7 +27,7 @@ Companion to [gb-sprite](https://github.com/Gondola-Bros-Entertainment/gb-sprite
 - Shapes: circle, ellipse, rect, rounded rect, polygon, star, arc, ring
 - Path DSL: monadic builder with lineTo, cubicTo, quadTo, arcTo, closePath
 - Path operations: reverse, measure, split, offset, simplify (Ramer-Douglas-Peucker)
-- Boolean operations: union, intersection, difference, XOR (Sutherland-Hodgman)
+- Boolean operations: union, intersection, difference, XOR (Sutherland-Hodgman; clip polygon must be convex)
 - Transforms: translate, rotate, rotateAround, scale, skew + affine matrix type
 - Style: fill, stroke, opacity, clip, mask, blur, drop shadow
 - Color: 43 named colors, hex, HSL, Oklab perceptual space, lighten/darken/saturate/invert
@@ -39,7 +39,7 @@ Companion to [gb-sprite](https://github.com/Gondola-Bros-Entertainment/gb-sprite
 - Text elements with font configuration
 - Tree optimizer: collapse redundant transforms and empty groups
 - Semigroup/Monoid composition on Element
-- 285 tests, 100% Haddock coverage
+- 294 tests, 100% Haddock coverage
 
 **Dependencies:** `base` + `text` only. Both GHC boot libraries. Zero external deps.
 
@@ -143,7 +143,7 @@ data Element
   | ETranslate !Double !Double !Element | ERotate !Double !Element
   | EScale !Double !Double !Element | EOpacity !Double !Element
   | EClip !Element !Element | EFilter !FilterKind !Element
-  | ...  -- 27 constructors total
+  | ...  -- 30 constructors total
 
 instance Semigroup Element  -- EGroup composition
 instance Monoid Element     -- mempty = EEmpty
@@ -310,7 +310,7 @@ Requires [GHCup](https://www.haskell.org/ghcup/) with GHC >= 9.6.
 
 ```bash
 cabal build                              # Build library
-cabal test                               # Run tests (285 pure tests)
+cabal test                               # Run tests (294 pure tests)
 cabal build --ghc-options="-Werror"      # Warnings as errors
 cabal haddock                            # Generate docs (100% coverage)
 ```

@@ -451,15 +451,16 @@ darken amount c =
    in withAlpha a (fromOklab (clampUnit (okL - clampUnit amount)) okA okB)
 
 -- | Increase color saturation (chroma) by the given factor.
--- @saturate 0.5 c@ boosts chroma by 50%.
+-- @saturate 0.5 c@ boosts chroma by 50%. Output channels are clamped
+-- to @[0, 1]@ via 'fromOklab', so the result always stays in gamut.
 saturate :: Double -> Color -> Color
 saturate amount c =
   let (okL, okA, okB) = toOklab c
       (Color _ _ _ a) = c
       chroma = sqrt (okA * okA + okB * okB)
       boosted = chroma * (1.0 + clampUnit amount)
-      scale = if chroma > chromaEpsilon then boosted / chroma else 1.0
-   in withAlpha a (fromOklab okL (okA * scale) (okB * scale))
+      scaleFactor = if chroma > chromaEpsilon then boosted / chroma else 1.0
+   in withAlpha a (fromOklab okL (okA * scaleFactor) (okB * scaleFactor))
 
 -- | Decrease color saturation (chroma) by the given factor.
 -- @desaturate 0.5 c@ reduces chroma by 50%.

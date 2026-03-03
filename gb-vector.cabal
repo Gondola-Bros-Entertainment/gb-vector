@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          gb-vector
-version:       0.1.0.0
+version:       0.1.0.1
 stability:     experimental
 synopsis:      Pure Haskell SVG generation
 description:
@@ -61,6 +61,7 @@ test-suite gb-vector-test
   build-depends:
     base       >=4.18 && <5,
     text       >=2.0  && <2.2,
+    directory  >=1.3  && <1.4,
     gb-vector
 
   default-language: Haskell2010

@@ -45,9 +45,12 @@ import GBVector.Types
 
 -- | Errors that can occur during SVG parsing.
 data ParseError
-  = UnexpectedEnd
-  | MalformedTag !Text
-  | MalformedPath !Text
+  = -- | Input ended before a complete element was found.
+    UnexpectedEnd
+  | -- | An XML tag could not be parsed or was unexpected.
+    MalformedTag !Text
+  | -- | An SVG path @d@ attribute contained invalid data.
+    MalformedPath !Text
   deriving (Show, Eq)
 
 -- ---------------------------------------------------------------------------

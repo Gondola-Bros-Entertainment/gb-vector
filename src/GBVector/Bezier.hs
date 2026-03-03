@@ -156,11 +156,13 @@ flattenCubic p0 p1 p2 p3 tolerance
 -- Length
 -- ---------------------------------------------------------------------------
 
--- | Approximate arc length of a cubic bezier using sampling.
+-- | Approximate arc length of a cubic bezier using adaptive flattening.
+-- More accurate than uniform sampling because it places more points
+-- where the curve bends.
 cubicLength :: V2 -> V2 -> V2 -> V2 -> Double
 cubicLength p0 p1 p2 p3 =
-  let pts = map (evalCubic p0 p1 p2 p3) sampleParamsLength
-   in sumDistances (p0 : pts)
+  let flatPts = flattenCubic p0 p1 p2 p3 lengthFlattenTolerance
+   in sumDistances (p0 : flatPts)
 
 -- ---------------------------------------------------------------------------
 -- Internal
@@ -234,11 +236,9 @@ sumDistances (V2 x1 y1 : rest@(V2 x2 y2 : _)) =
       dy = y2 - y1
    in sqrt (dx * dx + dy * dy) + sumDistances rest
 
-sampleParamsLength :: [Double]
-sampleParamsLength = map (\i -> fromIntegral i / fromIntegral lengthSamples) [1 .. lengthSamples :: Int]
-
-lengthSamples :: Int
-lengthSamples = 100
+-- | Tolerance for flattening curves when measuring length.
+lengthFlattenTolerance :: Double
+lengthFlattenTolerance = 0.1
 
 bboxSamples :: Int
 bboxSamples = 20

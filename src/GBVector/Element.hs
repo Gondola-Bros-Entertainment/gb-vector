@@ -48,9 +48,12 @@ import GBVector.Types
 
 -- | How an element's interior is painted.
 data Fill
-  = SolidFill !Color
-  | GradientFill !Gradient
-  | NoFill
+  = -- | Flat color fill.
+    SolidFill !Color
+  | -- | Gradient fill (linear or radial).
+    GradientFill !Gradient
+  | -- | No fill (transparent interior).
+    NoFill
   deriving (Show, Eq)
 
 -- ---------------------------------------------------------------------------
@@ -67,8 +70,11 @@ data Gradient
 
 -- | A single color stop in a gradient.
 data GradientStop = GradientStop
-  { stopOffset :: !Double,
+  { -- | Position along the gradient in @[0, 1]@.
+    stopOffset :: !Double,
+    -- | Color at this stop.
     stopColor :: !Color,
+    -- | Opacity at this stop in @[0, 1]@.
     stopOpacity :: !Double
   }
   deriving (Show, Eq)
@@ -79,11 +85,17 @@ data GradientStop = GradientStop
 
 -- | Full stroke configuration with cap, join, and optional dash pattern.
 data StrokeConfig = StrokeConfig
-  { strokeConfigColor :: !Color,
+  { -- | Stroke color.
+    strokeConfigColor :: !Color,
+    -- | Stroke width in user units.
     strokeConfigWidth :: !Double,
+    -- | Line cap style (butt, round, or square).
     strokeConfigCap :: !LineCap,
+    -- | Line join style (miter, round, or bevel).
     strokeConfigJoin :: !LineJoin,
+    -- | Dash pattern lengths (empty for solid stroke).
     strokeConfigDashArray :: ![Double],
+    -- | Offset into the dash pattern.
     strokeConfigDashOffset :: !Double
   }
   deriving (Show, Eq)
@@ -110,10 +122,15 @@ data TextAnchor = AnchorStart | AnchorMiddle | AnchorEnd
 
 -- | Configuration for rendered text.
 data TextConfig = TextConfig
-  { textConfigFontFamily :: !Text,
+  { -- | Font family name (e.g. @\"sans-serif\"@).
+    textConfigFontFamily :: !Text,
+    -- | Font size in user units.
     textConfigFontSize :: !Double,
+    -- | Horizontal text anchor alignment.
     textConfigAnchor :: !TextAnchor,
+    -- | Whether to render in bold weight.
     textConfigBold :: !Bool,
+    -- | Whether to render in italic style.
     textConfigItalic :: !Bool
   }
   deriving (Show, Eq)
@@ -125,42 +142,66 @@ data TextConfig = TextConfig
 -- | The core scene tree. Style and transforms are constructors wrapping
 -- children, enabling composition via function application.
 data Element
-  = -- Leaf shapes
+  = -- | An SVG path shape.
     EPath !Path
-  | ECircle !Double
-  | EEllipse !Double !Double
-  | ERect !Double !Double
-  | ERoundRect !Double !Double !Double !Double
-  | ELine !V2 !V2
-  | EPolyline ![V2]
-  | EPolygon ![V2]
-  | EText !TextConfig !Text
-  | -- Grouping
+  | -- | A circle with the given radius.
+    ECircle !Double
+  | -- | An ellipse with x and y radii.
+    EEllipse !Double !Double
+  | -- | A rectangle with width and height.
+    ERect !Double !Double
+  | -- | A rounded rectangle: width, height, corner-x radius, corner-y radius.
+    ERoundRect !Double !Double !Double !Double
+  | -- | A line segment between two points.
+    ELine !V2 !V2
+  | -- | An open polyline through the given points.
+    EPolyline ![V2]
+  | -- | A closed polygon through the given points.
+    EPolygon ![V2]
+  | -- | A text element with configuration and content.
+    EText !TextConfig !Text
+  | -- | A group of child elements.
     EGroup ![Element]
-  | -- Style wrappers
+  | -- | Set the fill of a child element.
     EFill !Fill !Element
-  | EStroke !Color !Double !Element
-  | EStrokeEx !StrokeConfig !Element
-  | EFillRule !FillRule !Element
-  | EOpacity !Double !Element
-  | -- Transform wrappers
+  | -- | Set stroke color and width on a child element.
+    EStroke !Color !Double !Element
+  | -- | Set full stroke configuration on a child element.
+    EStrokeEx !StrokeConfig !Element
+  | -- | Set the fill rule on a child element.
+    EFillRule !FillRule !Element
+  | -- | Set opacity on a child element.
+    EOpacity !Double !Element
+  | -- | Translate a child element by @(dx, dy)@.
     ETranslate !Double !Double !Element
-  | ERotate !Double !Element
-  | ERotateAround !Double !V2 !Element
-  | EScale !Double !Double !Element
-  | ESkewX !Double !Element
-  | ESkewY !Double !Element
-  | -- Composition
+  | -- | Rotate a child element by an angle in degrees.
+    ERotate !Double !Element
+  | -- | Rotate a child element around a center point.
+    ERotateAround !Double !V2 !Element
+  | -- | Scale a child element by @(sx, sy)@.
+    EScale !Double !Double !Element
+  | -- | Skew a child element along the X axis (degrees).
+    ESkewX !Double !Element
+  | -- | Skew a child element along the Y axis (degrees).
+    ESkewY !Double !Element
+  | -- | Clip a child element to a clip shape.
     EClip !Element !Element
-  | EMask !Element !Element
-  | EFilter !FilterKind !Element
-  | EWithId !Text !Element
-  | EUse !Text
-  | ERaw !Text
-  | -- Accessibility
+  | -- | Mask a child element with a mask shape.
+    EMask !Element !Element
+  | -- | Apply a filter effect to a child element.
+    EFilter !FilterKind !Element
+  | -- | Assign an id to a child element (for reuse).
+    EWithId !Text !Element
+  | -- | Reference a previously defined element by id.
+    EUse !Text
+  | -- | Raw SVG text, injected verbatim.
+    ERaw !Text
+  | -- | Attach an accessible title to a child element.
     ETitle !Text !Element
-  | EDesc !Text !Element
-  | EEmpty
+  | -- | Attach an accessible description to a child element.
+    EDesc !Text !Element
+  | -- | The empty element (identity for 'Monoid').
+    EEmpty
   deriving (Show, Eq)
 
 -- | Combine two elements into a group.
@@ -182,9 +223,13 @@ instance Monoid Element where
 
 -- | A complete SVG document with dimensions and a root element.
 data Document = Document
-  { docWidth :: !Double,
+  { -- | Document width in user units.
+    docWidth :: !Double,
+    -- | Document height in user units.
     docHeight :: !Double,
+    -- | Optional SVG viewBox for coordinate mapping.
     docViewBox :: !(Maybe ViewBox),
+    -- | Root element of the document tree.
     docElement :: !Element
   }
   deriving (Show, Eq)

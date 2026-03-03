@@ -51,10 +51,15 @@ data Segment
 
 -- | Parameters for an elliptical arc segment.
 data ArcParams = ArcParams
-  { arcRx :: !Double,
+  { -- | Horizontal radius of the ellipse.
+    arcRx :: !Double,
+    -- | Vertical radius of the ellipse.
     arcRy :: !Double,
+    -- | X-axis rotation in degrees.
     arcRotation :: !Double,
+    -- | Large arc flag: choose the arc spanning more than 180 degrees.
     arcLargeArc :: !Bool,
+    -- | Sweep flag: choose the arc drawn in the positive-angle direction.
     arcSweep :: !Bool
   }
   deriving (Show, Eq)
@@ -65,8 +70,11 @@ data ArcParams = ArcParams
 
 -- | A path: a start point, a list of segments, and whether the path is closed.
 data Path = Path
-  { pathStart :: !V2,
+  { -- | Starting point of the path.
+    pathStart :: !V2,
+    -- | Ordered list of segments following the start point.
     pathSegments :: ![Segment],
+    -- | Whether the path is closed (connects back to start).
     pathClosed :: !Bool
   }
   deriving (Show, Eq)

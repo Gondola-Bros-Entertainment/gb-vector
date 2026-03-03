@@ -33,8 +33,11 @@ import GBVector.Types (V2 (..))
 
 -- | Configuration for an SVG pattern definition.
 data PatternConfig = PatternConfig
-  { patternId :: !Text,
+  { -- | Unique identifier for the pattern element.
+    patternId :: !Text,
+    -- | Tile width in user units.
     patternWidth :: !Double,
+    -- | Tile height in user units.
     patternHeight :: !Double
   }
   deriving (Show, Eq)

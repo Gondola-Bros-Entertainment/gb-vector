@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.1.0.1
+
+### Bug Fixes
+- Fix arc segments silently replaced with straight lines in Boolean ops and PathOps
+- Fix arc length measurement using straight-line distance instead of true arc length
+- Fix `subpath` potential overflow when `t0` is very close to 1
+- Fix test suite leaving temporary SVG files in project root
+
+### Improvements
+- `cubicLength` now uses adaptive flattening instead of uniform sampling for better accuracy
+- `grad2D` expanded from 4 to 8 gradient directions for better noise isotropy
+- 100% Haddock coverage across all 17 modules (was 64%)
+- Document Sutherland-Hodgman convexity requirement on `intersection` and `difference`
+- Document `union` behavior with non-overlapping polygons
+- Document `intersectEpsilon` as absolute tolerance
+- 9 new tests (294 total): arc flattening, arc measurement, arc boolean ops, subpath edge case, saturate safety, noise determinism, arcToCubics validation
+
+### Internal
+- Add `directory` to test suite dependencies for temp file cleanup
+
 ## 0.1.0.0
 
 Initial release.
