@@ -3,7 +3,7 @@
 ## 0.1.0.2
 
 ### Bug Fixes
-- Fix Hackage Haddock coverage (69% → 100%): document all positional constructor
+- Fix Hackage Haddock coverage: document all positional constructor
   arguments with `-- |` comments. Local `cabal haddock` reported 100% on both
   GHC 9.6.7 and 9.8.4, but Hackage's server-side doc build counts positional
   constructor arguments as separate items requiring documentation.
