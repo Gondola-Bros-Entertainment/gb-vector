@@ -30,7 +30,12 @@ where
 -- ---------------------------------------------------------------------------
 
 -- | A 2D point or vector with strict 'Double' components.
-data V2 = V2 !Double !Double
+data V2
+  = V2
+      -- | X component.
+      !Double
+      -- | Y component.
+      !Double
   deriving (Show, Eq, Ord)
 
 -- ---------------------------------------------------------------------------
@@ -40,13 +45,29 @@ data V2 = V2 !Double !Double
 -- | A single segment in a path, relative to the previous endpoint.
 data Segment
   = -- | Straight line to a point.
-    LineTo !V2
+    LineTo
+      -- | Endpoint.
+      !V2
   | -- | Cubic bezier with two control points and an endpoint.
-    CubicTo !V2 !V2 !V2
+    CubicTo
+      -- | First control point.
+      !V2
+      -- | Second control point.
+      !V2
+      -- | Endpoint.
+      !V2
   | -- | Quadratic bezier with one control point and an endpoint.
-    QuadTo !V2 !V2
+    QuadTo
+      -- | Control point.
+      !V2
+      -- | Endpoint.
+      !V2
   | -- | Elliptical arc with parameters and an endpoint.
-    ArcTo !ArcParams !V2
+    ArcTo
+      -- | Arc parameters.
+      !ArcParams
+      -- | Endpoint.
+      !V2
   deriving (Show, Eq)
 
 -- | Parameters for an elliptical arc segment.
@@ -126,5 +147,14 @@ data SpreadMethod
 -- ---------------------------------------------------------------------------
 
 -- | SVG viewBox attribute: min-x, min-y, width, height.
-data ViewBox = ViewBox !Double !Double !Double !Double
+data ViewBox
+  = ViewBox
+      -- | Minimum X coordinate.
+      !Double
+      -- | Minimum Y coordinate.
+      !Double
+      -- | Width.
+      !Double
+      -- | Height.
+      !Double
   deriving (Show, Eq)

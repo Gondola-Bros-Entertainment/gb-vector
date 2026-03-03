@@ -7,7 +7,7 @@
 
 [![CI](https://github.com/Gondola-Bros-Entertainment/gb-vector/actions/workflows/ci.yml/badge.svg)](https://github.com/Gondola-Bros-Entertainment/gb-vector/actions/workflows/ci.yml)
 [![Hackage](https://img.shields.io/hackage/v/gb-vector.svg)](https://hackage.haskell.org/package/gb-vector)
-![Haskell](https://img.shields.io/badge/haskell-GHC%209.6-purple)
+![Haskell](https://img.shields.io/badge/haskell-GHC%209.8-purple)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue)](LICENSE)
 
 </p>
@@ -306,7 +306,7 @@ main = writeSvg "example.svg" $
 
 ## Build & Test
 
-Requires [GHCup](https://www.haskell.org/ghcup/) with GHC >= 9.6.
+Requires [GHCup](https://www.haskell.org/ghcup/) with GHC >= 9.8.
 
 ```bash
 cabal build                              # Build library

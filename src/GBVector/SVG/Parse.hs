@@ -48,9 +48,13 @@ data ParseError
   = -- | Input ended before a complete element was found.
     UnexpectedEnd
   | -- | An XML tag could not be parsed or was unexpected.
-    MalformedTag !Text
+    MalformedTag
+      -- | The offending tag text.
+      !Text
   | -- | An SVG path @d@ attribute contained invalid data.
-    MalformedPath !Text
+    MalformedPath
+      -- | The invalid path data.
+      !Text
   deriving (Show, Eq)
 
 -- ---------------------------------------------------------------------------

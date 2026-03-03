@@ -49,9 +49,13 @@ import GBVector.Types
 -- | How an element's interior is painted.
 data Fill
   = -- | Flat color fill.
-    SolidFill !Color
+    SolidFill
+      -- | Fill color.
+      !Color
   | -- | Gradient fill (linear or radial).
-    GradientFill !Gradient
+    GradientFill
+      -- | Gradient definition.
+      !Gradient
   | -- | No fill (transparent interior).
     NoFill
   deriving (Show, Eq)
@@ -63,9 +67,27 @@ data Fill
 -- | A color gradient — linear or radial.
 data Gradient
   = -- | Linear gradient from start point to end point.
-    LinearGradient !V2 !V2 ![GradientStop] !SpreadMethod
+    LinearGradient
+      -- | Start point.
+      !V2
+      -- | End point.
+      !V2
+      -- | Color stops.
+      ![GradientStop]
+      -- | Spread method beyond the gradient bounds.
+      !SpreadMethod
   | -- | Radial gradient: center, radius, focal point, stops, spread.
-    RadialGradient !V2 !Double !V2 ![GradientStop] !SpreadMethod
+    RadialGradient
+      -- | Center point.
+      !V2
+      -- | Radius.
+      !Double
+      -- | Focal point.
+      !V2
+      -- | Color stops.
+      ![GradientStop]
+      -- | Spread method beyond the gradient bounds.
+      !SpreadMethod
   deriving (Show, Eq)
 
 -- | A single color stop in a gradient.
@@ -107,9 +129,19 @@ data StrokeConfig = StrokeConfig
 -- | SVG filter effects.
 data FilterKind
   = -- | Gaussian blur with standard deviation.
-    FilterBlur !Double
+    FilterBlur
+      -- | Standard deviation (blur radius).
+      !Double
   | -- | Drop shadow: dx, dy, blur, color.
-    FilterDropShadow !Double !Double !Double !Color
+    FilterDropShadow
+      -- | Horizontal offset.
+      !Double
+      -- | Vertical offset.
+      !Double
+      -- | Blur standard deviation.
+      !Double
+      -- | Shadow color.
+      !Color
   deriving (Show, Eq)
 
 -- ---------------------------------------------------------------------------
@@ -149,63 +181,177 @@ data TextConfig = TextConfig
 -- children, enabling composition via function application.
 data Element
   = -- | An SVG path shape.
-    EPath !Path
+    EPath
+      -- | Path geometry.
+      !Path
   | -- | A circle with the given radius.
-    ECircle !Double
+    ECircle
+      -- | Radius.
+      !Double
   | -- | An ellipse with x and y radii.
-    EEllipse !Double !Double
+    EEllipse
+      -- | X radius.
+      !Double
+      -- | Y radius.
+      !Double
   | -- | A rectangle with width and height.
-    ERect !Double !Double
+    ERect
+      -- | Width.
+      !Double
+      -- | Height.
+      !Double
   | -- | A rounded rectangle: width, height, corner-x radius, corner-y radius.
-    ERoundRect !Double !Double !Double !Double
+    ERoundRect
+      -- | Width.
+      !Double
+      -- | Height.
+      !Double
+      -- | Corner X radius.
+      !Double
+      -- | Corner Y radius.
+      !Double
   | -- | A line segment between two points.
-    ELine !V2 !V2
+    ELine
+      -- | Start point.
+      !V2
+      -- | End point.
+      !V2
   | -- | An open polyline through the given points.
-    EPolyline ![V2]
+    EPolyline
+      -- | Vertices.
+      ![V2]
   | -- | A closed polygon through the given points.
-    EPolygon ![V2]
+    EPolygon
+      -- | Vertices.
+      ![V2]
   | -- | A text element with configuration and content.
-    EText !TextConfig !Text
+    EText
+      -- | Text configuration.
+      !TextConfig
+      -- | Text content.
+      !Text
   | -- | A group of child elements.
-    EGroup ![Element]
+    EGroup
+      -- | Children.
+      ![Element]
   | -- | Set the fill of a child element.
-    EFill !Fill !Element
+    EFill
+      -- | Fill style.
+      !Fill
+      -- | Child element.
+      !Element
   | -- | Set stroke color and width on a child element.
-    EStroke !Color !Double !Element
+    EStroke
+      -- | Stroke color.
+      !Color
+      -- | Stroke width.
+      !Double
+      -- | Child element.
+      !Element
   | -- | Set full stroke configuration on a child element.
-    EStrokeEx !StrokeConfig !Element
+    EStrokeEx
+      -- | Stroke configuration.
+      !StrokeConfig
+      -- | Child element.
+      !Element
   | -- | Set the fill rule on a child element.
-    EFillRule !FillRule !Element
+    EFillRule
+      -- | Fill rule.
+      !FillRule
+      -- | Child element.
+      !Element
   | -- | Set opacity on a child element.
-    EOpacity !Double !Element
+    EOpacity
+      -- | Opacity in @[0, 1]@.
+      !Double
+      -- | Child element.
+      !Element
   | -- | Translate a child element by @(dx, dy)@.
-    ETranslate !Double !Double !Element
+    ETranslate
+      -- | X offset.
+      !Double
+      -- | Y offset.
+      !Double
+      -- | Child element.
+      !Element
   | -- | Rotate a child element by an angle in degrees.
-    ERotate !Double !Element
+    ERotate
+      -- | Angle in degrees.
+      !Double
+      -- | Child element.
+      !Element
   | -- | Rotate a child element around a center point.
-    ERotateAround !Double !V2 !Element
+    ERotateAround
+      -- | Angle in degrees.
+      !Double
+      -- | Center of rotation.
+      !V2
+      -- | Child element.
+      !Element
   | -- | Scale a child element by @(sx, sy)@.
-    EScale !Double !Double !Element
+    EScale
+      -- | X scale factor.
+      !Double
+      -- | Y scale factor.
+      !Double
+      -- | Child element.
+      !Element
   | -- | Skew a child element along the X axis (degrees).
-    ESkewX !Double !Element
+    ESkewX
+      -- | Skew angle in degrees.
+      !Double
+      -- | Child element.
+      !Element
   | -- | Skew a child element along the Y axis (degrees).
-    ESkewY !Double !Element
+    ESkewY
+      -- | Skew angle in degrees.
+      !Double
+      -- | Child element.
+      !Element
   | -- | Clip a child element to a clip shape.
-    EClip !Element !Element
+    EClip
+      -- | Clip shape.
+      !Element
+      -- | Child element.
+      !Element
   | -- | Mask a child element with a mask shape.
-    EMask !Element !Element
+    EMask
+      -- | Mask shape.
+      !Element
+      -- | Child element.
+      !Element
   | -- | Apply a filter effect to a child element.
-    EFilter !FilterKind !Element
+    EFilter
+      -- | Filter effect.
+      !FilterKind
+      -- | Child element.
+      !Element
   | -- | Assign an id to a child element (for reuse).
-    EWithId !Text !Element
+    EWithId
+      -- | Element id.
+      !Text
+      -- | Child element.
+      !Element
   | -- | Reference a previously defined element by id.
-    EUse !Text
+    EUse
+      -- | Referenced id.
+      !Text
   | -- | Raw SVG text, injected verbatim.
-    ERaw !Text
+    ERaw
+      -- | Raw SVG markup.
+      !Text
   | -- | Attach an accessible title to a child element.
-    ETitle !Text !Element
+    ETitle
+      -- | Title text.
+      !Text
+      -- | Child element.
+      !Element
   | -- | Attach an accessible description to a child element.
-    EDesc !Text !Element
+    EDesc
+      -- | Description text.
+      !Text
+      -- | Child element.
+      !Element
   | -- | The empty element (identity for 'Monoid').
     EEmpty
   deriving (Show, Eq)

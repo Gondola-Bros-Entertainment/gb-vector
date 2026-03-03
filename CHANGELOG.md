@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.0.2
+
+### Bug Fixes
+- Fix Hackage Haddock coverage (69% → 100%): document all positional constructor
+  arguments with `-- |` comments. Local `cabal haddock` reported 100% on both
+  GHC 9.6.7 and 9.8.4, but Hackage's server-side doc build counts positional
+  constructor arguments as separate items requiring documentation.
+
+### Improvements
+- Upgrade tested GHC from 9.6.7 to 9.8.4
+
+### Affected Types
+- `V2`, `ViewBox`, `Segment`, `Color` — all constructor arguments documented
+- `Element` — all 30 constructors' positional arguments documented
+- `Fill`, `Gradient`, `FilterKind` — all constructor arguments documented
+- `ParseError` — `MalformedTag` and `MalformedPath` arguments documented
+
 ## 0.1.0.1
 
 ### Bug Fixes

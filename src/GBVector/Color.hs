@@ -97,7 +97,16 @@ import Data.Char (intToDigit, isDigit)
 -- ---------------------------------------------------------------------------
 
 -- | RGBA color with channels in @[0, 1]@.
-data Color = Color !Double !Double !Double !Double
+data Color
+  = Color
+      -- | Red channel.
+      !Double
+      -- | Green channel.
+      !Double
+      -- | Blue channel.
+      !Double
+      -- | Alpha channel.
+      !Double
   deriving (Show, Eq, Ord)
 
 -- ---------------------------------------------------------------------------
