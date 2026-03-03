@@ -33,6 +33,7 @@ module GBVector.Boolean
   )
 where
 
+import Data.List (foldl')
 import GBVector.Bezier (arcToCubics, flattenCubic)
 import GBVector.Types (ArcParams (..), Path (..), Segment (..), V2 (..))
 
@@ -135,16 +136,6 @@ pointInPolygon (V2 px py) poly@(first : rest) =
       | otherwise = count
 
 -- ---------------------------------------------------------------------------
--- Internal — Strict fold
--- ---------------------------------------------------------------------------
-
--- Reimplemented to avoid importing Data.List (foldl' is in Prelude for GHC 9.6+
--- but we use Haskell2010 which doesn't guarantee it)
-foldl' :: (b -> a -> b) -> b -> [a] -> b
-foldl' _ !acc [] = acc
-foldl' f !acc (x : xs) = foldl' f (f acc x) xs
-
--- ---------------------------------------------------------------------------
 -- Internal — Sutherland-Hodgman Clipping
 -- ---------------------------------------------------------------------------
 
@@ -155,7 +146,7 @@ sutherlandHodgman subject [] = subject
 sutherlandHodgman [] _ = []
 sutherlandHodgman subject clipPoly@(first : rest) =
   let clipEdges = zip clipPoly (rest ++ [first])
-   in Prelude.foldl clipByEdge subject clipEdges
+   in foldl' clipByEdge subject clipEdges
 
 -- | Clip a polygon by a single edge.
 clipByEdge :: [V2] -> (V2, V2) -> [V2]
@@ -203,8 +194,8 @@ polygonContainsAll :: [V2] -> [V2] -> Bool
 polygonContainsAll polyA = all (`pointInPolygon` polyA)
 
 -- | Merge two non-overlapping polygons into a single path.
--- When polygons don't overlap, returns the larger one as an approximation.
--- For a full implementation, this would trace the outer boundary.
+-- Concatenates vertices with the larger polygon first.
+-- Renders correctly with SVG even-odd fill rule.
 mergePolygons :: [V2] -> [V2] -> Path
 mergePolygons polyA polyB =
   let areaA = abs (polygonArea polyA)

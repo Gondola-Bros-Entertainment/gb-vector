@@ -84,19 +84,41 @@ data Path = Path
 -- ---------------------------------------------------------------------------
 
 -- | SVG stroke line-cap style.
-data LineCap = CapButt | CapRound | CapSquare
+data LineCap
+  = -- | Flat edge at the endpoint (default).
+    CapButt
+  | -- | Semicircular cap extending past the endpoint.
+    CapRound
+  | -- | Square cap extending past the endpoint.
+    CapSquare
   deriving (Show, Eq, Ord, Enum, Bounded)
 
 -- | SVG stroke line-join style.
-data LineJoin = JoinMiter | JoinRound | JoinBevel
+data LineJoin
+  = -- | Sharp corner (default).
+    JoinMiter
+  | -- | Rounded corner.
+    JoinRound
+  | -- | Bevelled (flattened) corner.
+    JoinBevel
   deriving (Show, Eq, Ord, Enum, Bounded)
 
 -- | SVG fill rule for determining interior regions.
-data FillRule = FillNonZero | FillEvenOdd
+data FillRule
+  = -- | Non-zero winding rule (default).
+    FillNonZero
+  | -- | Even-odd rule — alternating inside/outside.
+    FillEvenOdd
   deriving (Show, Eq, Ord, Enum, Bounded)
 
 -- | SVG gradient spread method.
-data SpreadMethod = SpreadPad | SpreadReflect | SpreadRepeat
+data SpreadMethod
+  = -- | Extend the final color to fill the remaining area (default).
+    SpreadPad
+  | -- | Reflect the gradient pattern.
+    SpreadReflect
+  | -- | Repeat the gradient pattern.
+    SpreadRepeat
   deriving (Show, Eq, Ord, Enum, Bounded)
 
 -- ---------------------------------------------------------------------------

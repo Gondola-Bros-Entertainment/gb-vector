@@ -177,11 +177,17 @@ flattenSegment _ (from, ArcTo params to) =
    in concatMap (\(s, c1, c2, end) -> flattenCubic s c1 c2 end flattenTolerance) (arcWithStarts from cubics)
 
 -- | Reverse a segment. Swaps control points for curves.
+-- Endpoints are set to a dummy origin — 'reversePath' replaces them
+-- with the correct previous point from the reversed segment list.
 reverseSegment :: Segment -> Segment
-reverseSegment (LineTo _) = LineTo (V2 0 0) -- Placeholder, endpoint set by caller
-reverseSegment (CubicTo c1 c2 _) = CubicTo c2 c1 (V2 0 0)
-reverseSegment (QuadTo c _) = QuadTo c (V2 0 0)
-reverseSegment (ArcTo params _) = ArcTo params (V2 0 0)
+reverseSegment (LineTo _) = LineTo dummyEndpoint
+reverseSegment (CubicTo c1 c2 _) = CubicTo c2 c1 dummyEndpoint
+reverseSegment (QuadTo c _) = QuadTo c dummyEndpoint
+reverseSegment (ArcTo params _) = ArcTo params dummyEndpoint
+
+-- | Dummy endpoint replaced by 'reversePath' after segment reversal.
+dummyEndpoint :: V2
+dummyEndpoint = V2 0 0
 
 -- ---------------------------------------------------------------------------
 -- Internal — Path Helpers

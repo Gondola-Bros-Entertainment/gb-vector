@@ -165,6 +165,20 @@ cubicLength p0 p1 p2 p3 =
    in sumDistances (p0 : flatPts)
 
 -- ---------------------------------------------------------------------------
+-- Internal — Constants
+-- ---------------------------------------------------------------------------
+
+-- | De Casteljau flatness criterion factor.
+-- Derived from the maximum deviation bound: @(4 * 1)^2 = 16@.
+flatnessFactor :: Double
+flatnessFactor = 16
+
+-- | Guard epsilon for 'vecAngle' to avoid division by zero
+-- when both input vectors are near-zero length.
+vecAngleEpsilon :: Double
+vecAngleEpsilon = 1.0e-10
+
+-- ---------------------------------------------------------------------------
 -- Internal
 -- ---------------------------------------------------------------------------
 
@@ -178,7 +192,7 @@ isFlatEnough (V2 x0 y0) (V2 x1 y1) (V2 x2 y2) (V2 x3 y3) tol =
       uy = 3 * y1 - 2 * y0 - y3
       vx = 3 * x2 - x0 - 2 * x3
       vy = 3 * y2 - y0 - 2 * y3
-   in max (ux * ux) (vx * vx) + max (uy * uy) (vy * vy) <= 16 * tol * tol
+   in max (ux * ux) (vx * vx) + max (uy * uy) (vy * vy) <= flatnessFactor * tol * tol
 
 twoPi :: Double
 twoPi = 2 * pi
@@ -189,7 +203,7 @@ halfPi = pi / 2
 vecAngle :: Double -> Double -> Double -> Double -> Double
 vecAngle ux uy vx vy =
   let n = sqrt (ux * ux + uy * uy) * sqrt (vx * vx + vy * vy)
-      c = (ux * vx + uy * vy) / max n 1.0e-10
+      c = (ux * vx + uy * vy) / max n vecAngleEpsilon
       s = ux * vy - uy * vx
    in atan2 s (clampNeg1to1 c)
 

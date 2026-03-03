@@ -117,7 +117,13 @@ data FilterKind
 -- ---------------------------------------------------------------------------
 
 -- | Text anchor position.
-data TextAnchor = AnchorStart | AnchorMiddle | AnchorEnd
+data TextAnchor
+  = -- | Align to the start (left for LTR text).
+    AnchorStart
+  | -- | Align to the center.
+    AnchorMiddle
+  | -- | Align to the end (right for LTR text).
+    AnchorEnd
   deriving (Show, Eq, Ord, Enum, Bounded)
 
 -- | Configuration for rendered text.

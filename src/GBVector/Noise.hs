@@ -281,16 +281,54 @@ permAt seed idx =
    in mixed .&. permMask
 
 -- | Integer hash function (Thomas Wang's 32-bit mix, masked to 32 bits).
+-- Shift amounts are powers of 2 used as bit-shift substitutes.
 hashInt :: Int -> Int
 hashInt n0 =
-  let mask32 = 0xFFFFFFFF
-      n1 = ((n0 + 0x7ed55d16) + (n0 * 1024)) .&. mask32
-      n2 = ((n1 `xor` (n1 `div` 2048)) + 0xc761c23c) .&. mask32
-      n3 = ((n2 `xor` (n2 * 65536)) + 0x165667b1) .&. mask32
-      n4 = ((n3 `xor` (n3 `div` 32)) + 0xd3a2646c) .&. mask32
-      n5 = ((n4 `xor` (n4 * 256)) + 0xfd7046c5) .&. mask32
-      n6 = (n5 `xor` (n5 `div` 4096)) .&. mask32
+  let n1 = ((n0 + hashMagicA) + (n0 * hashShiftL10)) .&. hashMask32
+      n2 = ((n1 `xor` (n1 `div` hashShiftR11)) + hashMagicB) .&. hashMask32
+      n3 = ((n2 `xor` (n2 * hashShiftL16)) + hashMagicC) .&. hashMask32
+      n4 = ((n3 `xor` (n3 `div` hashShiftR5)) + hashMagicD) .&. hashMask32
+      n5 = ((n4 `xor` (n4 * hashShiftL8)) + hashMagicE) .&. hashMask32
+      n6 = (n5 `xor` (n5 `div` hashShiftR12)) .&. hashMask32
    in n6
+
+-- Thomas Wang hash constants.
+hashMask32 :: Int
+hashMask32 = 0xFFFFFFFF
+
+hashMagicA :: Int
+hashMagicA = 0x7ed55d16
+
+hashMagicB :: Int
+hashMagicB = 0xc761c23c
+
+hashMagicC :: Int
+hashMagicC = 0x165667b1
+
+hashMagicD :: Int
+hashMagicD = 0xd3a2646c
+
+hashMagicE :: Int
+hashMagicE = 0xfd7046c5
+
+-- Shift amounts (powers of 2, used as multiply/divide instead of shiftL/shiftR).
+hashShiftL10 :: Int
+hashShiftL10 = 1024
+
+hashShiftR11 :: Int
+hashShiftR11 = 2048
+
+hashShiftL16 :: Int
+hashShiftL16 = 65536
+
+hashShiftR5 :: Int
+hashShiftR5 = 32
+
+hashShiftL8 :: Int
+hashShiftL8 = 256
+
+hashShiftR12 :: Int
+hashShiftR12 = 4096
 
 -- | Hash grid coordinates to an integer.
 hashCoord :: Int -> Int -> Int -> Int
@@ -308,8 +346,19 @@ coordPrimeY = 19349663
 -- ---------------------------------------------------------------------------
 
 -- | Quintic fade curve: @6t^5 - 15t^4 + 10t^3@.
+-- Coefficients from Perlin's improved noise (2002).
 fade :: Double -> Double
-fade t = t * t * t * (t * (t * 6 - 15) + 10)
+fade t = t * t * t * (t * (t * fadeC5 - fadeC4) + fadeC3)
+
+-- Perlin fade curve coefficients.
+fadeC5 :: Double
+fadeC5 = 6
+
+fadeC4 :: Double
+fadeC4 = 15
+
+fadeC3 :: Double
+fadeC3 = 10
 
 -- | Linear interpolation for noise.
 lerpN :: Double -> Double -> Double -> Double
@@ -318,7 +367,7 @@ lerpN t a b = a + t * (b - a)
 -- | 2D gradient from a hash value.
 -- Uses 8 directions for better isotropy than the minimal 4-direction table.
 grad2D :: Int -> Double -> Double -> Double
-grad2D hash gx gy = case hash .&. 7 of
+grad2D hash gx gy = case hash .&. gradDirectionMask of
   0 -> gx + gy
   1 -> negate gx + gy
   2 -> gx - gy
@@ -350,6 +399,10 @@ simplexContrib gi sx sy =
 permMask :: Int
 permMask = 255
 
+-- | Gradient direction mask — selects one of 8 directions.
+gradDirectionMask :: Int
+gradDirectionMask = 7
+
 -- | Simplex skew factor for 2D: @(sqrt 3 - 1) / 2@.
 skewFactor2D :: Double
 skewFactor2D = 0.3660254037844386
@@ -370,6 +423,7 @@ simplexScale = 70.0
 noiseOffsetX :: Double
 noiseOffsetX = 100.0
 
+-- | Noise offset for the Y axis (decorrelates from X displacement).
 noiseOffsetY :: Double
 noiseOffsetY = 200.0
 

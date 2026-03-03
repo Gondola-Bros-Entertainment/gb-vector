@@ -42,7 +42,8 @@ Initial release.
 - `line`, `square`, `regularPolygon`, `arc`, `ring`
 
 ### Path DSL
-- `PathBuilder` monad: `startAt`, `lineTo`, `cubicTo`, `quadTo`, `arcTo`, `closePath`
+- `buildPath` — run a `PathBuilder` monad to produce a `Path`
+- `PathBuilder` actions: `startAt`, `lineTo`, `cubicTo`, `quadTo`, `arcTo`, `closePath`
 - `polylinePath`, `polygonPath` convenience constructors
 
 ### Path Operations
@@ -61,10 +62,19 @@ Initial release.
 - `Matrix` type with `identity`, `composeMatrix`, `applyMatrix`
 - Matrix constructors: `translateM`, `rotateM`, `scaleM`, `scaleXYM`, `skewXM`, `skewYM`
 
+### Gradients
+- `linearGradient`, `radialGradient` — gradient constructors
+- `stop`, `stopWithOpacity`, `evenStops`, `oklabStops` — gradient stop builders
+
 ### Style
-- `fill`, `fillGradient`, `stroke`, `strokeEx`, `dashedStroke`, `defaultStrokeConfig`
-- `opacity`, `fillNone`, `fillRule`
-- `clip`, `mask`, `blur`, `dropShadow`, `withId`, `use`
+- `fill`, `fillColor`, `fillGradient`, `fillNone`, `fillRule`
+- `stroke`, `strokeEx`, `dashedStroke`, `defaultStrokeConfig`
+- `opacity`, `clip`, `mask`, `blur`, `dropShadow`
+- `withId`, `use`, `raw`, `title`, `desc`
+
+### Text
+- `text`, `textAt`, `textWithConfig` — text element constructors
+- `defaultTextConfig`, `fontSize`, `fontFamily`, `bold`, `italic`, `anchor` — config builders
 
 ### Noise
 - `perlin2D`, `simplex2D` — deterministic 2D noise
@@ -75,7 +85,7 @@ Initial release.
 
 ### Patterns
 - `dotGrid`, `lineGrid`, `crosshatch`, `checker` — tileable pattern generators
-- `patternDef`, `PatternConfig` — SVG pattern element construction
+- `patternDef`, `PatternConfig`, `defaultPatternConfig` — SVG pattern element construction
 
 ### SVG Parsing
 - `parseSvg`, `parseElement` — parse SVG text back to `Element` trees
@@ -88,4 +98,6 @@ Initial release.
 
 ### SVG Output
 - `render :: Document -> Text` — pure SVG serialization
+- `renderCompact :: Document -> Text` — compact SVG output
+- `renderElement :: Element -> Text` — render a fragment without `<svg>` wrapper
 - `writeSvg :: FilePath -> Document -> IO ()` — file output
