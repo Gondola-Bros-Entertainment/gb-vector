@@ -1214,8 +1214,11 @@ testGradient =
     ),
     ( "oklabStops endpoints match",
       let stops = oklabStops 3 red blue
-          Color fr fg fb _ = stopColor (head stops)
-          Color lr lg lb _ = stopColor (last stops)
+          (firstStop, lastStop) = case stops of
+            (s : rest) -> (s, case reverse rest of (l : _) -> l; [] -> s)
+            [] -> error "oklabStops returned empty"
+          Color fr fg fb _ = stopColor firstStop
+          Color lr lg lb _ = stopColor lastStop
        in do
             _ <- assertApprox "oklab first r" 0.01 1.0 fr
             _ <- assertApprox "oklab first g" 0.01 0.0 fg
