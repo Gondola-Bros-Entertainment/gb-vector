@@ -627,7 +627,7 @@ findTag input =
   let trimmed = skipWhitespace input
    in case T.uncons trimmed of
         Just ('<', rest) ->
-          let (tagAndAttrs, afterOpen) = T.break (\c -> c == '>' || c == '/') rest
+          let (tagAndAttrs, afterOpen) = breakTagEnd rest
            in if T.null afterOpen
                 then Nothing
                 else
@@ -641,6 +641,28 @@ findTag input =
                                 Just (body, remaining) -> Just (tagName, attrs, body, remaining)
                                 Nothing -> Just (tagName, attrs, bodyStart, T.empty)
         _ -> Nothing
+
+-- | Split tag content at the first unquoted @>@ or @/@.
+-- Respects double- and single-quoted attribute values so that characters
+-- like @/@ inside URLs (e.g. @xmlns="http://…"@) do not terminate the
+-- scan prematurely.
+breakTagEnd :: Text -> (Text, Text)
+breakTagEnd txt = T.splitAt (scanLen Nothing 0 txt) txt
+  where
+    scanLen :: Maybe Char -> Int -> Text -> Int
+    scanLen quoteState !n remaining = case T.uncons remaining of
+      Nothing -> n
+      Just (c, rest)
+        | c == '"' -> case quoteState of
+            Nothing -> scanLen (Just '"') (n + 1) rest
+            Just '"' -> scanLen Nothing (n + 1) rest
+            Just _ -> scanLen quoteState (n + 1) rest
+        | c == '\'' -> case quoteState of
+            Nothing -> scanLen (Just '\'') (n + 1) rest
+            Just '\'' -> scanLen Nothing (n + 1) rest
+            Just _ -> scanLen quoteState (n + 1) rest
+        | c == '>' || c == '/', Nothing <- quoteState -> n
+        | otherwise -> scanLen quoteState (n + 1) rest
 
 -- | Find the matching close tag, handling nesting.
 findCloseTag :: Text -> Text -> Maybe (Text, Text)

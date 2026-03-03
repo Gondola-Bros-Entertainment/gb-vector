@@ -39,7 +39,7 @@ Companion to [gb-sprite](https://github.com/Gondola-Bros-Entertainment/gb-sprite
 - Text elements with font configuration
 - Tree optimizer: collapse redundant transforms and empty groups
 - Semigroup/Monoid composition on Element
-- 294 tests, 100% Haddock coverage
+- 523 tests, 92% HPC expression coverage, 100% Haddock coverage
 
 **Dependencies:** `base` + `text` only. Both GHC boot libraries. Zero external deps.
 
@@ -310,7 +310,7 @@ Requires [GHCup](https://www.haskell.org/ghcup/) with GHC >= 9.8.
 
 ```bash
 cabal build                              # Build library
-cabal test                               # Run tests (294 pure tests)
+cabal test                               # Run tests (523 pure tests)
 cabal build --ghc-options="-Werror"      # Warnings as errors
 cabal haddock                            # Generate docs (100% coverage)
 ```

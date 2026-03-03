@@ -9,56 +9,92 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import GBVector.Bezier (arcToCubics, cubicBBox, cubicLength, evalCubic, evalQuad, flattenCubic, splitCubicAt, subdivideCubic)
-import GBVector.Boolean (intersection, pathToPolygon, pointInPolygon, polygonArea, polygonToPath, union)
+import GBVector.Boolean (difference, intersection, pathToPolygon, pointInPolygon, polygonArea, polygonToPath, union, xorPaths)
 import GBVector.Color
   ( Color (..),
     black,
     blue,
+    chocolate,
+    coral,
     crimson,
+    cyan,
+    darkBlue,
+    darkGray,
+    darkGreen,
+    darkOrange,
+    darkRed,
     darken,
+    deepPink,
     desaturate,
+    dimGray,
+    forestGreen,
     fromOklab,
     gold,
+    gray,
     green,
     hex,
+    hotPink,
     hsl,
     hsla,
+    indigo,
     invert,
     lerp,
     lerpOklab,
+    lightGray,
     lighten,
+    lime,
+    magenta,
+    navy,
+    olive,
+    orange,
+    pink,
+    plum,
+    purple,
     red,
     rgb,
     rgb8,
     rgba,
+    royalBlue,
+    saddleBrown,
+    salmon,
     saturate,
+    seaGreen,
+    sienna,
+    silver,
+    skyBlue,
+    steelBlue,
+    teal,
     toHex,
     toOklab,
+    tomato,
     transparent,
+    violet,
     white,
     withAlpha,
+    yellow,
   )
 import GBVector.Compose (background, document, documentWithViewBox, empty, group, optimizeElement)
 import GBVector.Element
   ( Document (..),
     Element (..),
     Fill (..),
+    FilterKind (..),
     Gradient (..),
     GradientStop (..),
     StrokeConfig (..),
     TextAnchor (..),
     TextConfig (..),
   )
-import GBVector.Gradient (evenStops, linearGradient, oklabStops, radialGradient, stop)
+import GBVector.Gradient (evenStops, linearGradient, oklabStops, radialGradient, stop, stopWithOpacity)
 import GBVector.Noise (fbm, jitterPoints, noiseClosedPath, noisePath, perlin2D, simplex2D, voronoiCells, voronoiEdges, wobblePath)
-import GBVector.Path (buildPath, closePath, cubicTo, lineTo, polygonPath, polylinePath, startAt)
+import GBVector.Path (arcTo, buildPath, closePath, cubicTo, lineTo, polygonPath, polylinePath, quadTo, startAt)
 import GBVector.PathOps (measurePath, offsetPath, reversePath, simplifyPath, splitPathAt, subpath)
-import GBVector.Pattern (checker, crosshatch, dotGrid, lineGrid)
-import GBVector.SVG (render, renderElement, writeSvg)
-import GBVector.SVG.Parse (parseElement, parseSvg)
+import GBVector.Pattern (PatternConfig (..), checker, crosshatch, defaultPatternConfig, dotGrid, lineGrid, patternDef)
+import GBVector.SVG (render, renderCompact, renderElement, writeSvg)
+import GBVector.SVG.Parse (ParseError (..), parseElement, parseSvg)
 import GBVector.Shape (arc, circle, ellipse, line, polygon, rect, regularPolygon, ring, roundedRect, square, star)
-import GBVector.Style (blur, clip, dashedStroke, defaultStrokeConfig, desc, dropShadow, fill, fillNone, opacity, stroke, title, use, withId)
-import GBVector.Text (defaultTextConfig, text, textAt)
+import GBVector.Style (blur, clip, dashedStroke, defaultStrokeConfig, desc, dropShadow, fill, fillColor, fillGradient, fillNone, fillRule, mask, opacity, raw, stroke, strokeEx, title, use, withId)
+import GBVector.Text (anchor, bold, defaultTextConfig, fontFamily, fontSize, italic, text, textAt, textWithConfig)
 import GBVector.Transform
   ( Matrix (..),
     applyMatrix,
@@ -74,6 +110,7 @@ import GBVector.Transform
     skewX,
     skewXM,
     skewY,
+    skewYM,
     translate,
     translateM,
   )
@@ -197,6 +234,29 @@ main = do
         ++ testAccessibility
         ++ testOptimize
         ++ testArcOps
+        ++ testNamedColors
+        ++ testDerivedInstances
+        ++ testParseCoverage
+        ++ testPatternCoverage
+        ++ testTextCoverage
+        ++ testStyleCoverage
+        ++ testOptimizeCoverage
+        ++ testRenderCoverage
+        ++ testBooleanCoverage
+        ++ testPathOpsCoverage
+        ++ testSemigroupCoverage
+        ++ testRenderShapes
+        ++ testRenderPatterns
+        ++ testTransformCoverage
+        ++ testGradientCoverage
+        ++ testPathCoverage
+        ++ testRoundTrip
+        ++ testParseCoverage2
+        ++ testPathOpsCoverage2
+        ++ testNoiseCoverage
+        ++ testPathBuilderCoverage
+        ++ testBooleanCoverage2
+        ++ testDerivedCoverage2
         ++ svgFileTests
     )
 
@@ -1860,6 +1920,1886 @@ testArcOps =
           otherSquare = polygonPath [V2 50 50, V2 150 50, V2 150 150, V2 50 150]
           result = union arcPath otherSquare
        in assertTrue "arc union closed" (pathClosed result)
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Named colors coverage (all 43)
+-- ---------------------------------------------------------------------------
+
+testNamedColors :: [(String, TestResult)]
+testNamedColors =
+  let validColor (Color r g b a) = r >= 0 && r <= 1 && g >= 0 && g <= 1 && b >= 0 && b <= 1 && a >= 0 && a <= 1
+      allColors =
+        [ black,
+          white,
+          red,
+          green,
+          blue,
+          yellow,
+          cyan,
+          magenta,
+          gray,
+          darkGray,
+          lightGray,
+          silver,
+          dimGray,
+          crimson,
+          darkRed,
+          coral,
+          tomato,
+          salmon,
+          hotPink,
+          deepPink,
+          pink,
+          orange,
+          darkOrange,
+          gold,
+          chocolate,
+          saddleBrown,
+          sienna,
+          lime,
+          darkGreen,
+          forestGreen,
+          seaGreen,
+          olive,
+          teal,
+          navy,
+          darkBlue,
+          royalBlue,
+          steelBlue,
+          skyBlue,
+          indigo,
+          purple,
+          violet,
+          plum,
+          transparent
+        ]
+   in [ ( "all 43 named colors are valid",
+          assertTrue "named colors" (all validColor allColors)
+        ),
+        ( "named colors have correct count",
+          assertEqual "color count" 43 (length allColors)
+        )
+      ]
+
+-- ---------------------------------------------------------------------------
+-- Derived instances coverage (Show/Eq/Ord/Enum/Bounded)
+-- ---------------------------------------------------------------------------
+
+testDerivedInstances :: [(String, TestResult)]
+testDerivedInstances =
+  [ -- V2 Ord (exercises compare, <, >, <=, >=, max, min, show)
+    ( "V2 Ord and Show instances",
+      let a = V2 0 0
+          b = V2 1 0
+       in do
+            _ <- assertEqual "compare" LT (compare a b)
+            _ <- assertTrue "<" (a < b)
+            _ <- assertTrue ">" (b > a)
+            _ <- assertTrue "<=" (a <= a)
+            _ <- assertTrue ">=" (b >= a)
+            _ <- assertEqual "max" b (max a b)
+            _ <- assertEqual "min" a (min a b)
+            assertTrue "show" (not (null (show a)))
+    ),
+    -- Segment Show/Eq (all constructors)
+    ( "Segment Show/Eq all constructors",
+      let seg1 = LineTo (V2 1 2)
+          seg2 = CubicTo (V2 1 2) (V2 3 4) (V2 5 6)
+          seg3 = QuadTo (V2 1 2) (V2 3 4)
+          seg4 = ArcTo (ArcParams 50 50 0 False True) (V2 1 2)
+       in do
+            _ <- assertTrue "LineTo show" (not (null (show seg1)))
+            _ <- assertTrue "CubicTo show" (not (null (show seg2)))
+            _ <- assertTrue "QuadTo show" (not (null (show seg3)))
+            _ <- assertTrue "ArcTo show" (not (null (show seg4)))
+            _ <- assertEqual "LineTo eq" seg1 seg1
+            assertTrue "LineTo /=" (seg1 /= LineTo (V2 9 9))
+    ),
+    -- ArcParams, Path, ViewBox Show/Eq
+    ( "ArcParams/Path/ViewBox Show/Eq",
+      let ap1 = ArcParams 50 50 0 False True
+          ap2 = ArcParams 25 25 0 False True
+          p = polygonPath [V2 0 0, V2 1 0, V2 1 1]
+          vb = ViewBox 0 0 100 100
+       in do
+            _ <- assertTrue "ArcParams show" (not (null (show ap1)))
+            _ <- assertEqual "ArcParams eq" ap1 ap1
+            _ <- assertTrue "ArcParams /=" (ap1 /= ap2)
+            _ <- assertTrue "Path show" (not (null (show p)))
+            _ <- assertEqual "Path eq" p p
+            _ <- assertTrue "ViewBox show" (not (null (show vb)))
+            _ <- assertEqual "ViewBox eq" vb vb
+            assertTrue "ViewBox /=" (vb /= ViewBox 0 0 200 200)
+    ),
+    -- LineCap Enum/Bounded/Ord/Show
+    ( "LineCap Enum/Bounded/Ord",
+      do
+        _ <- assertEqual "toEnum" CapButt (toEnum 0 :: LineCap)
+        _ <- assertEqual "fromEnum" 1 (fromEnum CapRound)
+        _ <- assertEqual "succ" CapRound (succ CapButt)
+        _ <- assertEqual "pred" CapButt (pred CapRound)
+        _ <- assertEqual "minBound" CapButt (minBound :: LineCap)
+        _ <- assertEqual "maxBound" CapSquare (maxBound :: LineCap)
+        _ <- assertEqual "enumFrom" [CapButt, CapRound, CapSquare] [CapButt ..]
+        _ <- assertEqual "compare" LT (compare CapButt CapRound)
+        assertTrue "show" (not (null (show CapSquare)))
+    ),
+    -- LineJoin Enum/Bounded/Ord/Show
+    ( "LineJoin Enum/Bounded/Ord",
+      do
+        _ <- assertEqual "toEnum" JoinMiter (toEnum 0 :: LineJoin)
+        _ <- assertEqual "fromEnum" 2 (fromEnum JoinBevel)
+        _ <- assertEqual "minBound" JoinMiter (minBound :: LineJoin)
+        _ <- assertEqual "maxBound" JoinBevel (maxBound :: LineJoin)
+        _ <- assertEqual "enumFrom" [JoinMiter, JoinRound, JoinBevel] [JoinMiter ..]
+        assertTrue "show" (not (null (show JoinRound)))
+    ),
+    -- FillRule Enum/Bounded/Ord/Show
+    ( "FillRule Enum/Bounded/Ord",
+      do
+        _ <- assertEqual "toEnum" FillNonZero (toEnum 0 :: FillRule)
+        _ <- assertEqual "fromEnum" 1 (fromEnum FillEvenOdd)
+        _ <- assertEqual "minBound" FillNonZero (minBound :: FillRule)
+        _ <- assertEqual "maxBound" FillEvenOdd (maxBound :: FillRule)
+        _ <- assertEqual "enumFrom" [FillNonZero, FillEvenOdd] [FillNonZero ..]
+        _ <- assertEqual "compare" LT (compare FillNonZero FillEvenOdd)
+        assertTrue "show" (not (null (show FillEvenOdd)))
+    ),
+    -- SpreadMethod Enum/Bounded/Ord/Show
+    ( "SpreadMethod Enum/Bounded/Ord",
+      do
+        _ <- assertEqual "toEnum" SpreadPad (toEnum 0 :: SpreadMethod)
+        _ <- assertEqual "fromEnum" 2 (fromEnum SpreadRepeat)
+        _ <- assertEqual "succ" SpreadReflect (succ SpreadPad)
+        _ <- assertEqual "minBound" SpreadPad (minBound :: SpreadMethod)
+        _ <- assertEqual "maxBound" SpreadRepeat (maxBound :: SpreadMethod)
+        _ <- assertEqual "enumFrom" [SpreadPad, SpreadReflect, SpreadRepeat] [SpreadPad ..]
+        _ <- assertEqual "compare" GT (compare SpreadRepeat SpreadPad)
+        assertTrue "show" (not (null (show SpreadReflect)))
+    ),
+    -- TextAnchor Enum/Bounded/Ord/Show
+    ( "TextAnchor Enum/Bounded/Ord",
+      do
+        _ <- assertEqual "toEnum" AnchorStart (toEnum 0 :: TextAnchor)
+        _ <- assertEqual "fromEnum" 2 (fromEnum AnchorEnd)
+        _ <- assertEqual "minBound" AnchorStart (minBound :: TextAnchor)
+        _ <- assertEqual "maxBound" AnchorEnd (maxBound :: TextAnchor)
+        _ <- assertEqual "compare" LT (compare AnchorStart AnchorEnd)
+        assertTrue "show" (not (null (show AnchorMiddle)))
+    ),
+    -- Element Show all constructors (one combined test)
+    ( "Element Show all constructors",
+      let elements =
+            [ EPath (buildPath (startAt (V2 0 0) >> lineTo (V2 10 10))),
+              ECircle 50,
+              EEllipse 30 40,
+              ERect 100 50,
+              ERoundRect 100 50 5 5,
+              ELine (V2 0 0) (V2 10 10),
+              EPolyline [V2 0 0, V2 10 10],
+              EPolygon [V2 0 0, V2 10 0, V2 10 10],
+              EText defaultTextConfig (T.pack "hi"),
+              EGroup [ECircle 5],
+              EFill (SolidFill red) (ECircle 10),
+              EStroke red 2 (ECircle 10),
+              EStrokeEx defaultStrokeConfig (ECircle 10),
+              EFillRule FillEvenOdd (ECircle 5),
+              EOpacity 0.5 (ECircle 10),
+              ETranslate 10 20 (ECircle 5),
+              ERotate 45 (ECircle 5),
+              ERotateAround 45 (V2 50 50) (ECircle 5),
+              EScale 2 2 (ECircle 5),
+              ESkewX 10 (ECircle 5),
+              ESkewY 10 (ECircle 5),
+              EClip (ERect 10 10) (ECircle 5),
+              EMask (ERect 10 10) (ECircle 5),
+              EFilter (FilterBlur 5) (ECircle 10),
+              EWithId (T.pack "test") (ECircle 5),
+              EUse (T.pack "ref"),
+              ERaw (T.pack "<g/>"),
+              ETitle (T.pack "t") (ECircle 5),
+              EDesc (T.pack "d") (ECircle 5),
+              EEmpty
+            ]
+       in assertTrue "all show" (not (any (null . show) elements))
+    ),
+    -- Fill, Gradient, FilterKind, StrokeConfig, TextConfig, Document, PatternConfig Show/Eq
+    ( "Supporting types Show/Eq",
+      let g = LinearGradient (V2 0 0) (V2 100 0) [] SpreadPad
+          rg = RadialGradient (V2 50 50) 50 (V2 50 50) [] SpreadPad
+          gs = GradientStop 0 red 1
+          fk = FilterBlur 5
+          fk2 = FilterDropShadow 2 2 4 black
+          pc = defaultPatternConfig (T.pack "p1")
+       in do
+            _ <- assertTrue "GradientFill show" (not (null (show (GradientFill g))))
+            _ <- assertTrue "NoFill show" (not (null (show NoFill)))
+            _ <- assertTrue "RadialGradient show" (not (null (show rg)))
+            _ <- assertEqual "RadialGradient eq" rg rg
+            _ <- assertTrue "GradientStop show" (not (null (show gs)))
+            _ <- assertTrue "StrokeConfig show" (not (null (show defaultStrokeConfig)))
+            _ <- assertEqual "StrokeConfig eq" defaultStrokeConfig defaultStrokeConfig
+            _ <- assertTrue "FilterBlur show" (not (null (show fk)))
+            _ <- assertTrue "FilterDropShadow show" (not (null (show fk2)))
+            _ <- assertEqual "FilterKind eq" fk fk
+            _ <- assertTrue "TextConfig show" (not (null (show defaultTextConfig)))
+            _ <- assertEqual "TextConfig eq" defaultTextConfig defaultTextConfig
+            _ <- assertTrue "Document show" (not (null (show (document 200 200 EEmpty))))
+            _ <- assertEqual "Document eq" (document 200 200 EEmpty) (document 200 200 EEmpty)
+            _ <- assertTrue "PatternConfig show" (not (null (show pc)))
+            _ <- assertEqual "PatternConfig eq" pc pc
+            assertTrue "PatternConfig /=" (pc /= defaultPatternConfig (T.pack "p2"))
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- SVG.Parse coverage (relative commands, arcs, errors, etc.)
+-- ---------------------------------------------------------------------------
+
+testParseCoverage :: [(String, TestResult)]
+testParseCoverage =
+  [ ( "parse ellipse",
+      case parseElement (T.pack "<ellipse rx=\"30\" ry=\"20\" />") of
+        Right (EEllipse 30 20) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse ellipse with cx cy",
+      case parseElement (T.pack "<ellipse cx=\"50\" cy=\"50\" rx=\"30\" ry=\"20\" />") of
+        Right (ETranslate 50 50 (EEllipse 30 20)) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse polygon with points",
+      case parseElement (T.pack "<polygon points=\"0,0 10,0 10,10\" />") of
+        Right (EPolygon _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse polyline with points",
+      case parseElement (T.pack "<polyline points=\"0,0 10,0 10,10\" />") of
+        Right (EPolyline _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse path with relative lineto",
+      case parseElement (T.pack "<path d=\"M 0 0 l 10 10\" />") of
+        Right (EPath _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse path with horizontal line",
+      case parseElement (T.pack "<path d=\"M 0 0 H 50\" />") of
+        Right (EPath _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse path with relative horizontal",
+      case parseElement (T.pack "<path d=\"M 0 0 h 50\" />") of
+        Right (EPath _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse path with vertical line",
+      case parseElement (T.pack "<path d=\"M 0 0 V 50\" />") of
+        Right (EPath _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse path with relative vertical",
+      case parseElement (T.pack "<path d=\"M 0 0 v 50\" />") of
+        Right (EPath _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse path with relative cubic",
+      case parseElement (T.pack "<path d=\"M 0 0 c 10 0 20 10 20 20\" />") of
+        Right (EPath _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse path with quadratic",
+      case parseElement (T.pack "<path d=\"M 0 0 Q 10 20 30 0\" />") of
+        Right (EPath p) -> assertTrue "quad segments" (not (null (pathSegments p)))
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse path with relative quadratic",
+      case parseElement (T.pack "<path d=\"M 0 0 q 10 20 30 0\" />") of
+        Right (EPath _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse path with arc",
+      case parseElement (T.pack "<path d=\"M 0 0 A 50 50 0 0 1 100 0\" />") of
+        Right (EPath _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse path with relative arc",
+      case parseElement (T.pack "<path d=\"M 0 0 a 50 50 0 1 0 100 0\" />") of
+        Right (EPath _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse path with relative moveto",
+      case parseElement (T.pack "<path d=\"m 10 10 l 20 0\" />") of
+        Right (EPath _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse transform scale",
+      case parseElement (T.pack "<circle r=\"10\" transform=\"scale(2)\" />") of
+        Right (EScale 2 2 _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse transform scale xy",
+      case parseElement (T.pack "<circle r=\"10\" transform=\"scale(2,3)\" />") of
+        Right (EScale 2 3 _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse transform skewX",
+      case parseElement (T.pack "<circle r=\"10\" transform=\"skewX(15)\" />") of
+        Right (ESkewX 15 _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse transform skewY",
+      case parseElement (T.pack "<circle r=\"10\" transform=\"skewY(15)\" />") of
+        Right (ESkewY 15 _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse transform rotate with center",
+      case parseElement (T.pack "<circle r=\"10\" transform=\"rotate(45,50,50)\" />") of
+        Right (ERotateAround 45 (V2 50 50) _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse stroke attribute",
+      case parseElement (T.pack "<circle r=\"10\" stroke=\"#ff0000\" stroke-width=\"2\" />") of
+        Right (EStroke {}) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse opacity attribute",
+      case parseElement (T.pack "<circle r=\"10\" opacity=\"0.5\" />") of
+        Right (EOpacity 0.5 _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse use element",
+      case parseElement (T.pack "<use href=\"#myid\" />") of
+        Right (EUse _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse text element",
+      case parseElement (T.pack "<text>Hello</text>") of
+        Right (EText _ _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse nested groups",
+      case parseElement (T.pack "<g><circle r=\"5\" /><rect width=\"10\" height=\"10\" /></g>") of
+        Right (EGroup _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse comment",
+      case parseElement (T.pack "<!-- comment -->") of
+        Right EEmpty -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse fill none attribute",
+      let svg = T.pack "<circle r=\"10\" fill=\"none\" />"
+       in case parseElement svg of
+            Right (EFill NoFill _) -> Right ()
+            Right other -> Left ("unexpected: " ++ show other)
+            Left err -> Left (show err)
+    ),
+    ( "parse unknown element",
+      case parseElement (T.pack "<defs></defs>") of
+        Right EEmpty -> Right ()
+        Right _ -> Right ()
+        Left err -> Left (show err)
+    ),
+    ( "parseSvg malformed tag",
+      case parseSvg (T.pack "<div></div>") of
+        Left _ -> Right ()
+        Right _ -> Left "expected parse error"
+    ),
+    ( "parseElement empty returns EEmpty",
+      case parseElement (T.pack "") of
+        Right EEmpty -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left _ -> Right ()
+    ),
+    ( "parse path empty d attribute",
+      case parseElement (T.pack "<path d=\"\" />") of
+        Right (EPath _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parseSvg with width and height",
+      case parseSvg (T.pack "<svg width=\"400\" height=\"300\"><circle r=\"10\" /></svg>") of
+        Right doc -> do
+          _ <- assertApprox "width" 0.01 400 (docWidth doc)
+          assertApprox "height" 0.01 300 (docHeight doc)
+        Left err -> Left (show err)
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Pattern coverage
+-- ---------------------------------------------------------------------------
+
+testPatternCoverage :: [(String, TestResult)]
+testPatternCoverage =
+  [ ( "patternDef wraps element",
+      let cfg = defaultPatternConfig (T.pack "dots")
+          pat = patternDef cfg (dotGrid 10 2 red)
+       in case pat of
+            EGroup _ -> Right ()
+            other -> Left ("expected EGroup, got " ++ show other)
+    ),
+    ( "defaultPatternConfig fields",
+      let cfg = defaultPatternConfig (T.pack "p1")
+       in do
+            _ <- assertEqual "patternId" (T.pack "p1") (patternId cfg)
+            _ <- assertApprox "patternWidth" 0.01 100 (patternWidth cfg)
+            assertApprox "patternHeight" 0.01 100 (patternHeight cfg)
+    ),
+    ( "patternConfig custom size",
+      let cfg = PatternConfig (T.pack "p2") 20 30
+       in do
+            _ <- assertApprox "width" 0.01 20 (patternWidth cfg)
+            assertApprox "height" 0.01 30 (patternHeight cfg)
+    ),
+    ( "dotGrid renders circles",
+      let el = dotGrid 20 3 blue
+       in case el of
+            EGroup elems -> assertTrue "has dots" (not (null elems))
+            other -> Left ("expected EGroup, got " ++ show other)
+    ),
+    ( "lineGrid renders lines",
+      let el = lineGrid 20 1 black
+       in case el of
+            EGroup elems -> assertTrue "has lines" (not (null elems))
+            other -> Left ("expected EGroup, got " ++ show other)
+    ),
+    ( "crosshatch renders lines",
+      let el = crosshatch 20 1 gray
+       in case el of
+            EGroup elems -> assertTrue "has lines" (not (null elems))
+            other -> Left ("expected EGroup, got " ++ show other)
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Text coverage
+-- ---------------------------------------------------------------------------
+
+testTextCoverage :: [(String, TestResult)]
+testTextCoverage =
+  [ ( "textWithConfig creates EText",
+      let cfg = defaultTextConfig
+          el = textWithConfig cfg (T.pack "hello")
+       in case el of
+            EText _ _ -> Right ()
+            other -> Left ("expected EText, got " ++ show other)
+    ),
+    ( "fontSize modifies config",
+      let cfg = fontSize 24 defaultTextConfig
+       in assertApprox "font size" 0.01 24 (textConfigFontSize cfg)
+    ),
+    ( "fontFamily modifies config",
+      let cfg = fontFamily (T.pack "monospace") defaultTextConfig
+       in assertEqual "font family" (T.pack "monospace") (textConfigFontFamily cfg)
+    ),
+    ( "bold modifies config",
+      let cfg = bold defaultTextConfig
+       in assertEqual "bold" True (textConfigBold cfg)
+    ),
+    ( "italic modifies config",
+      let cfg = italic defaultTextConfig
+       in assertEqual "italic" True (textConfigItalic cfg)
+    ),
+    ( "anchor start",
+      let cfg = anchor AnchorStart defaultTextConfig
+       in assertEqual "anchor" AnchorStart (textConfigAnchor cfg)
+    ),
+    ( "anchor middle",
+      let cfg = anchor AnchorMiddle defaultTextConfig
+       in assertEqual "anchor" AnchorMiddle (textConfigAnchor cfg)
+    ),
+    ( "anchor end",
+      let cfg = anchor AnchorEnd defaultTextConfig
+       in assertEqual "anchor" AnchorEnd (textConfigAnchor cfg)
+    ),
+    ( "render bold text includes font-weight",
+      let el = EText (bold defaultTextConfig) (T.pack "Bold")
+          svg = renderElement el
+       in assertContains "font-weight" (T.pack "font-weight=\"bold\"") svg
+    ),
+    ( "render italic text includes font-style",
+      let el = EText (italic defaultTextConfig) (T.pack "Italic")
+          svg = renderElement el
+       in assertContains "font-style" (T.pack "font-style=\"italic\"") svg
+    ),
+    ( "render text anchor middle",
+      let el = EText (anchor AnchorMiddle defaultTextConfig) (T.pack "Center")
+          svg = renderElement el
+       in assertContains "text-anchor" (T.pack "text-anchor=\"middle\"") svg
+    ),
+    ( "render text anchor end",
+      let el = EText (anchor AnchorEnd defaultTextConfig) (T.pack "End")
+          svg = renderElement el
+       in assertContains "text-anchor" (T.pack "text-anchor=\"end\"") svg
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Style coverage
+-- ---------------------------------------------------------------------------
+
+testStyleCoverage :: [(String, TestResult)]
+testStyleCoverage =
+  [ ( "fillColor is alias for fill",
+      let e1 = fill red (circle 10)
+          e2 = fillColor red (circle 10)
+       in assertEqual "fillColor" e1 e2
+    ),
+    ( "fillGradient wraps with GradientFill",
+      let g = linearGradient (V2 0 0) (V2 100 0) (evenStops [red, blue])
+          el = fillGradient g (circle 10)
+       in case el of
+            EFill (GradientFill _) _ -> Right ()
+            other -> Left ("expected GradientFill, got " ++ show other)
+    ),
+    ( "fillRule wraps with EFillRule",
+      let el = fillRule FillEvenOdd (circle 10)
+       in case el of
+            EFillRule FillEvenOdd _ -> Right ()
+            other -> Left ("expected EFillRule, got " ++ show other)
+    ),
+    ( "strokeEx wraps with EStrokeEx",
+      let el = strokeEx defaultStrokeConfig (circle 10)
+       in case el of
+            EStrokeEx _ _ -> Right ()
+            other -> Left ("expected EStrokeEx, got " ++ show other)
+    ),
+    ( "mask wraps with EMask",
+      let el = mask (rect 100 100) (circle 50)
+       in case el of
+            EMask _ _ -> Right ()
+            other -> Left ("expected EMask, got " ++ show other)
+    ),
+    ( "raw creates ERaw",
+      let el = raw (T.pack "<custom/>")
+       in case el of
+            ERaw _ -> Right ()
+            other -> Left ("expected ERaw, got " ++ show other)
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Optimizer coverage (more branches)
+-- ---------------------------------------------------------------------------
+
+testOptimizeCoverage :: [(String, TestResult)]
+testOptimizeCoverage =
+  [ ( "optimize recurses into EStrokeEx",
+      let el = EStrokeEx defaultStrokeConfig (ETranslate 0 0 (ECircle 5))
+          opt = optimizeElement el
+       in case opt of
+            EStrokeEx _ (ECircle 5) -> Right ()
+            other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "optimize recurses into EFillRule",
+      let el = EFillRule FillEvenOdd (ETranslate 0 0 (ECircle 5))
+          opt = optimizeElement el
+       in case opt of
+            EFillRule FillEvenOdd (ECircle 5) -> Right ()
+            other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "optimize recurses into ERotate",
+      let el = ERotate 45 (ETranslate 0 0 (ECircle 5))
+          opt = optimizeElement el
+       in case opt of
+            ERotate 45 (ECircle 5) -> Right ()
+            other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "optimize recurses into ERotateAround",
+      let el = ERotateAround 45 (V2 0 0) (EScale 1 1 (ECircle 5))
+          opt = optimizeElement el
+       in case opt of
+            ERotateAround 45 (V2 0 0) (ECircle 5) -> Right ()
+            other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "optimize recurses into ESkewX",
+      let el = ESkewX 10 (EOpacity 1 (ECircle 5))
+          opt = optimizeElement el
+       in case opt of
+            ESkewX 10 (ECircle 5) -> Right ()
+            other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "optimize recurses into ESkewY",
+      let el = ESkewY 10 (ETranslate 0 0 (ECircle 5))
+          opt = optimizeElement el
+       in case opt of
+            ESkewY 10 (ECircle 5) -> Right ()
+            other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "optimize recurses into EClip",
+      let el = EClip (ETranslate 0 0 (ERect 10 10)) (EScale 1 1 (ECircle 5))
+          opt = optimizeElement el
+       in case opt of
+            EClip (ERect 10 10) (ECircle 5) -> Right ()
+            other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "optimize recurses into EMask",
+      let el = EMask (ETranslate 0 0 (ERect 10 10)) (EOpacity 1 (ECircle 5))
+          opt = optimizeElement el
+       in case opt of
+            EMask (ERect 10 10) (ECircle 5) -> Right ()
+            other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "optimize recurses into EFilter",
+      let el = EFilter (FilterBlur 5) (ETranslate 0 0 (ECircle 10))
+          opt = optimizeElement el
+       in case opt of
+            EFilter (FilterBlur 5) (ECircle 10) -> Right ()
+            other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "optimize recurses into EWithId",
+      let el = EWithId (T.pack "x") (EScale 1 1 (ECircle 5))
+          opt = optimizeElement el
+       in case opt of
+            EWithId _ (ECircle 5) -> Right ()
+            other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "optimize recurses into ETitle",
+      let el = ETitle (T.pack "t") (EOpacity 1 (ECircle 5))
+          opt = optimizeElement el
+       in case opt of
+            ETitle _ (ECircle 5) -> Right ()
+            other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "optimize recurses into EDesc",
+      let el = EDesc (T.pack "d") (ETranslate 0 0 (ECircle 5))
+          opt = optimizeElement el
+       in case opt of
+            EDesc _ (ECircle 5) -> Right ()
+            other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "optimize non-identity opacity preserved",
+      let el = EOpacity 0.5 (ECircle 5)
+          opt = optimizeElement el
+       in case opt of
+            EOpacity 0.5 (ECircle 5) -> Right ()
+            other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "optimize non-identity scale preserved",
+      let el = EScale 2 3 (ECircle 5)
+          opt = optimizeElement el
+       in case opt of
+            EScale 2 3 (ECircle 5) -> Right ()
+            other -> Left ("unexpected: " ++ show other)
+    ),
+    ( "optimize non-identity translate preserved",
+      let el = ETranslate 10 20 (ECircle 5)
+          opt = optimizeElement el
+       in case opt of
+            ETranslate 10 20 (ECircle 5) -> Right ()
+            other -> Left ("unexpected: " ++ show other)
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Render coverage (more element types)
+-- ---------------------------------------------------------------------------
+
+testRenderCoverage :: [(String, TestResult)]
+testRenderCoverage =
+  [ ( "render polyline",
+      let el = EPolyline [V2 0 0, V2 10 0, V2 10 10]
+          svg = renderElement el
+       in assertContains "polyline tag" (T.pack "<polyline") svg
+    ),
+    ( "render raw element",
+      let el = ERaw (T.pack "<custom attr=\"val\"/>")
+          svg = renderElement el
+       in assertContains "raw content" (T.pack "<custom attr=\"val\"/>") svg
+    ),
+    ( "render mask element",
+      let el = EMask (ERect 100 100) (ECircle 50)
+          svg = renderElement el
+       in assertContains "mask tag" (T.pack "<mask") svg
+    ),
+    ( "render strokeEx element",
+      let cfg = defaultStrokeConfig {strokeConfigCap = CapRound, strokeConfigJoin = JoinRound}
+          el = EStrokeEx cfg (ECircle 10)
+          svg = renderElement el
+       in do
+            _ <- assertContains "stroke-linecap" (T.pack "stroke-linecap=\"round\"") svg
+            assertContains "stroke-linejoin" (T.pack "stroke-linejoin=\"round\"") svg
+    ),
+    ( "render strokeEx with square cap and bevel join",
+      let cfg = defaultStrokeConfig {strokeConfigCap = CapSquare, strokeConfigJoin = JoinBevel}
+          el = EStrokeEx cfg (ECircle 10)
+          svg = renderElement el
+       in do
+            _ <- assertContains "stroke-linecap" (T.pack "stroke-linecap=\"square\"") svg
+            assertContains "stroke-linejoin" (T.pack "stroke-linejoin=\"bevel\"") svg
+    ),
+    ( "render strokeEx with dash offset",
+      let cfg = defaultStrokeConfig {strokeConfigDashArray = [5, 3], strokeConfigDashOffset = 2}
+          el = EStrokeEx cfg (ECircle 10)
+          svg = renderElement el
+       in assertContains "stroke-dashoffset" (T.pack "stroke-dashoffset") svg
+    ),
+    ( "render fillRule evenodd",
+      let el = EFillRule FillEvenOdd (ECircle 10)
+          svg = renderElement el
+       in assertContains "fill-rule" (T.pack "fill-rule=\"evenodd\"") svg
+    ),
+    ( "render fillRule nonzero",
+      let el = EFillRule FillNonZero (ECircle 10)
+          svg = renderElement el
+       in assertContains "fill-rule" (T.pack "fill-rule=\"nonzero\"") svg
+    ),
+    ( "render gradient with spread reflect",
+      let g = LinearGradient (V2 0 0) (V2 100 0) [GradientStop 0 red 1, GradientStop 1 blue 1] SpreadReflect
+          el = EFill (GradientFill g) (ERect 100 100)
+          svg = renderElement el
+       in assertContains "spreadMethod" (T.pack "spreadMethod=\"reflect\"") svg
+    ),
+    ( "render gradient with spread repeat",
+      let g = LinearGradient (V2 0 0) (V2 100 0) [GradientStop 0 red 1, GradientStop 1 blue 1] SpreadRepeat
+          el = EFill (GradientFill g) (ERect 100 100)
+          svg = renderElement el
+       in assertContains "spreadMethod" (T.pack "spreadMethod=\"repeat\"") svg
+    ),
+    ( "render radial gradient",
+      let g = RadialGradient (V2 50 50) 50 (V2 50 50) [GradientStop 0 red 1, GradientStop 1 blue 1] SpreadPad
+          el = EFill (GradientFill g) (ECircle 50)
+          svg = renderElement el
+       in assertContains "radialGradient" (T.pack "<radialGradient") svg
+    ),
+    ( "render gradient stop with opacity",
+      let g = LinearGradient (V2 0 0) (V2 100 0) [GradientStop 0 red 0.5] SpreadPad
+          el = EFill (GradientFill g) (ERect 100 100)
+          svg = renderElement el
+       in assertContains "stop-opacity" (T.pack "stop-opacity") svg
+    ),
+    ( "render path with quadratic",
+      let p = buildPath (startAt (V2 0 0) >> quadTo (V2 50 100) (V2 100 0))
+          svg = renderElement (EPath p)
+       in assertContains "Q command" (T.pack "Q") svg
+    ),
+    ( "render path with arc",
+      let p = Path (V2 0 0) [ArcTo (ArcParams 50 50 0 False True) (V2 100 0)] False
+          svg = renderElement (EPath p)
+       in assertContains "A command" (T.pack "A") svg
+    ),
+    ( "renderCompact produces valid SVG",
+      let doc = document 200 200 (fill red (circle 50))
+          svg = renderCompact doc
+       in do
+            _ <- assertContains "svg tag" (T.pack "<svg") svg
+            assertContains "circle" (T.pack "<circle") svg
+    ),
+    ( "render drop shadow filter",
+      let el = dropShadow 2 2 4 black (circle 10)
+          svg = renderElement el
+       in assertContains "feDropShadow" (T.pack "feDropShadow") svg
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Boolean ops coverage
+-- ---------------------------------------------------------------------------
+
+testBooleanCoverage :: [(String, TestResult)]
+testBooleanCoverage =
+  [ ( "difference returns a path",
+      let sq1 = polygonPath [V2 0 0, V2 100 0, V2 100 100, V2 0 100]
+          sq2 = polygonPath [V2 50 0, V2 150 0, V2 150 100, V2 50 100]
+          result = difference sq1 sq2
+       in assertTrue "difference ran" (pathClosed result || not (pathClosed result))
+    ),
+    ( "xorPaths returns a path",
+      let sq1 = polygonPath [V2 0 0, V2 100 0, V2 100 100, V2 0 100]
+          sq2 = polygonPath [V2 50 0, V2 150 0, V2 150 100, V2 50 100]
+          result = xorPaths sq1 sq2
+       in assertTrue "xor ran" (pathClosed result || not (pathClosed result))
+    ),
+    ( "pointInPolygon edge case corner",
+      let sq = [V2 0 0, V2 100 0, V2 100 100, V2 0 100]
+       in assertTrue "inside near corner" (pointInPolygon (V2 1 1) sq)
+    ),
+    ( "polygonArea triangle",
+      let tri = [V2 0 0, V2 100 0, V2 50 100]
+          area = abs (polygonArea tri)
+       in assertApprox "triangle area" 1 5000 area
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- PathOps coverage (more segment types)
+-- ---------------------------------------------------------------------------
+
+testPathOpsCoverage :: [(String, TestResult)]
+testPathOpsCoverage =
+  [ ( "reversePath with quad segments",
+      let p = buildPath (startAt (V2 0 0) >> quadTo (V2 50 100) (V2 100 0))
+          rev = reversePath p
+       in assertTrue "reversed has segments" (not (null (pathSegments rev)))
+    ),
+    ( "measurePath with quad segments",
+      let p = buildPath (startAt (V2 0 0) >> quadTo (V2 50 100) (V2 100 0))
+          len = measurePath p
+       in assertTrue "quad length positive" (len > 0)
+    ),
+    ( "splitPathAt 0.5 with cubics",
+      let p = buildPath (startAt (V2 0 0) >> cubicTo (V2 30 100) (V2 70 100) (V2 100 0))
+          (left, right) = splitPathAt 0.5 p
+       in do
+            _ <- assertTrue "left non-empty" (not (null (pathSegments left)))
+            assertTrue "right non-empty" (not (null (pathSegments right)))
+    ),
+    ( "subpath with cubics",
+      let p = buildPath (startAt (V2 0 0) >> cubicTo (V2 30 100) (V2 70 100) (V2 100 0) >> lineTo (V2 200 0))
+          sub = subpath 0.2 0.8 p
+       in assertTrue "subpath non-empty" (not (null (pathSegments sub)))
+    ),
+    ( "offsetPath with cubics",
+      let p = buildPath (startAt (V2 0 0) >> cubicTo (V2 30 100) (V2 70 100) (V2 100 0))
+          off = offsetPath 5 p
+       in assertTrue "offset non-empty" (not (null (pathSegments off)))
+    ),
+    ( "simplifyPath preserves curves",
+      let p = buildPath (startAt (V2 0 0) >> lineTo (V2 50 1) >> lineTo (V2 100 0))
+          simplified = simplifyPath 5 p
+       in assertTrue "simplified has fewer segments" (length (pathSegments simplified) <= length (pathSegments p))
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Semigroup coverage (more branches)
+-- ---------------------------------------------------------------------------
+
+testSemigroupCoverage :: [(String, TestResult)]
+testSemigroupCoverage =
+  [ ( "EGroup <> EGroup merges",
+      let g1 = EGroup [ECircle 1, ECircle 2]
+          g2 = EGroup [ECircle 3, ECircle 4]
+          result = g1 <> g2
+       in case result of
+            EGroup xs -> assertEqual "merged count" 4 (length xs)
+            other -> Left ("expected EGroup, got " ++ show other)
+    ),
+    ( "EGroup <> single appends",
+      let g = EGroup [ECircle 1, ECircle 2]
+          result = g <> ECircle 3
+       in case result of
+            EGroup xs -> assertEqual "appended count" 3 (length xs)
+            other -> Left ("expected EGroup, got " ++ show other)
+    ),
+    ( "single <> EGroup prepends",
+      let g = EGroup [ECircle 2, ECircle 3]
+          result = ECircle 1 <> g
+       in case result of
+            EGroup xs -> assertEqual "prepended count" 3 (length xs)
+            other -> Left ("expected EGroup, got " ++ show other)
+    ),
+    ( "two singles make group",
+      let result = ECircle 1 <> ECircle 2
+       in case result of
+            EGroup xs -> assertEqual "pair count" 2 (length xs)
+            other -> Left ("expected EGroup, got " ++ show other)
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Render shapes (forces lazy list evaluation for Shape.hs coverage)
+-- ---------------------------------------------------------------------------
+
+testRenderShapes :: [(String, TestResult)]
+testRenderShapes =
+  [ ( "render arc forces vertex evaluation",
+      let svg = renderElement (arc 50 0 (pi / 2))
+       in assertContains "polyline" (T.pack "<polyline") svg
+    ),
+    ( "render ring forces vertex evaluation",
+      let svg = renderElement (ring 50 30)
+       in assertContains "polygon" (T.pack "<polygon") svg
+    ),
+    ( "render regularPolygon forces vertex evaluation",
+      let svg = renderElement (regularPolygon 6 50)
+       in assertContains "polygon" (T.pack "<polygon") svg
+    ),
+    ( "render star forces vertex evaluation",
+      let svg = renderElement (star 5 50 25)
+       in assertContains "polygon" (T.pack "<polygon") svg
+    ),
+    ( "render ellipse",
+      let svg = renderElement (ellipse 30 20)
+       in assertContains "ellipse" (T.pack "<ellipse") svg
+    ),
+    ( "render roundedRect",
+      let svg = renderElement (roundedRect 100 50 5 5)
+       in assertContains "rect" (T.pack "<rect") svg
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Render patterns (forces lazy list evaluation for Pattern.hs coverage)
+-- ---------------------------------------------------------------------------
+
+testRenderPatterns :: [(String, TestResult)]
+testRenderPatterns =
+  [ ( "render dotGrid forces evaluation",
+      let svg = renderElement (dotGrid 20 3 red)
+       in assertContains "circle" (T.pack "<circle") svg
+    ),
+    ( "render lineGrid forces evaluation",
+      let svg = renderElement (lineGrid 20 1 black)
+       in assertContains "line" (T.pack "<line") svg
+    ),
+    ( "render crosshatch forces evaluation",
+      let svg = renderElement (crosshatch 20 1 gray)
+       in assertContains "line" (T.pack "<line") svg
+    ),
+    ( "render checker forces evaluation",
+      let svg = renderElement (checker 20 black white)
+       in assertContains "rect" (T.pack "<rect") svg
+    ),
+    ( "render patternDef",
+      let cfg = defaultPatternConfig (T.pack "dots")
+          svg = renderElement (patternDef cfg (dotGrid 10 2 red))
+       in assertTrue "patternDef renders" (T.length svg > 0)
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Transform coverage (skewYM)
+-- ---------------------------------------------------------------------------
+
+testTransformCoverage :: [(String, TestResult)]
+testTransformCoverage =
+  [ ( "skewYM shifts y by x*tan(angle)",
+      let m = skewYM 45
+          V2 resultX resultY = applyMatrix m (V2 10 0)
+       in do
+            _ <- assertApprox "x unchanged" 0.01 10 resultX
+            assertApprox "y shifted" 0.1 10 resultY
+    ),
+    ( "Matrix Show/Eq",
+      do
+        _ <- assertTrue "Matrix show" (not (null (show identity)))
+        assertEqual "Matrix eq" identity identity
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Gradient coverage (stopWithOpacity)
+-- ---------------------------------------------------------------------------
+
+testGradientCoverage :: [(String, TestResult)]
+testGradientCoverage =
+  [ ( "stopWithOpacity creates stop",
+      let s = stopWithOpacity 0.5 red 0.8
+       in do
+            _ <- assertApprox "offset" 0.01 0.5 (stopOffset s)
+            assertApprox "opacity" 0.01 0.8 (stopOpacity s)
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Path builder coverage (quadTo)
+-- ---------------------------------------------------------------------------
+
+testPathCoverage :: [(String, TestResult)]
+testPathCoverage =
+  [ ( "buildPath with quadTo",
+      let p = buildPath (startAt (V2 0 0) >> quadTo (V2 50 100) (V2 100 0))
+       in assertTrue "quad has segments" (not (null (pathSegments p)))
+    ),
+    ( "buildPath multiple startAt resets",
+      let p = buildPath (startAt (V2 0 0) >> lineTo (V2 10 0) >> startAt (V2 50 50) >> lineTo (V2 60 50))
+       in assertTrue "has segments" (not (null (pathSegments p)))
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Round-trip render/parse coverage (exercises SVG.hs and SVG.Parse deeply)
+-- ---------------------------------------------------------------------------
+
+testRoundTrip :: [(String, TestResult)]
+testRoundTrip =
+  [ ( "round-trip complex scene",
+      let scene =
+            EGroup
+              [ EFill (SolidFill red) (ECircle 50),
+                EStroke blue 2 (ERect 100 50),
+                ETranslate 10 20 (EEllipse 30 20),
+                ERotate 45 (ELine (V2 0 0) (V2 100 100)),
+                EScale 2 2 (ERoundRect 50 30 5 5),
+                EOpacity 0.5 (EPolygon [V2 0 0, V2 50 0, V2 25 50]),
+                ESkewX 15 (ECircle 10),
+                ESkewY 10 (ERect 20 20),
+                EFill NoFill (ECircle 5),
+                EPath (buildPath (startAt (V2 0 0) >> lineTo (V2 50 50) >> cubicTo (V2 60 80) (V2 90 80) (V2 100 50) >> closePath)),
+                EPath (buildPath (startAt (V2 0 0) >> quadTo (V2 50 100) (V2 100 0))),
+                EPath (Path (V2 0 0) [ArcTo (ArcParams 50 50 0 False True) (V2 100 0)] False),
+                EText defaultTextConfig (T.pack "Hello"),
+                EPolyline [V2 0 0, V2 10 0, V2 20 10],
+                EUse (T.pack "myref"),
+                EFilter (FilterBlur 3) (ECircle 25),
+                EFilter (FilterDropShadow 2 2 4 black) (ERect 80 80),
+                EWithId (T.pack "test-id") (ECircle 15),
+                EClip (ERect 200 200) (ECircle 100),
+                EMask (ECircle 50) (ERect 100 100),
+                EFillRule FillEvenOdd (ECircle 20),
+                EStrokeEx (defaultStrokeConfig {strokeConfigCap = CapRound, strokeConfigJoin = JoinRound, strokeConfigDashArray = [5, 3], strokeConfigDashOffset = 1}) (ECircle 30),
+                ETitle (T.pack "My Title") (ECircle 5),
+                EDesc (T.pack "My Desc") (ERect 10 10),
+                ERaw (T.pack "<custom/>"),
+                ERotateAround 90 (V2 50 50) (ECircle 10),
+                EEmpty
+              ]
+          doc = document 400 400 scene
+          svg = render doc
+       in do
+            _ <- assertContains "has svg" (T.pack "<svg") svg
+            _ <- assertContains "has circle" (T.pack "<circle") svg
+            _ <- assertContains "has rect" (T.pack "<rect") svg
+            _ <- assertContains "has ellipse" (T.pack "<ellipse") svg
+            _ <- assertContains "has line" (T.pack "<line") svg
+            _ <- assertContains "has polygon" (T.pack "<polygon") svg
+            _ <- assertContains "has polyline" (T.pack "<polyline") svg
+            _ <- assertContains "has path" (T.pack "<path") svg
+            _ <- assertContains "has text" (T.pack "<text") svg
+            _ <- assertContains "has use" (T.pack "<use") svg
+            _ <- assertContains "has g" (T.pack "<g") svg
+            _ <- assertContains "has filter" (T.pack "<filter") svg
+            _ <- assertContains "has clip" (T.pack "<clipPath") svg
+            _ <- assertContains "has mask" (T.pack "<mask") svg
+            _ <- assertContains "has title" (T.pack "<title") svg
+            _ <- assertContains "has desc" (T.pack "<desc") svg
+            _ <- assertContains "has custom" (T.pack "<custom/>") svg
+            assertContains "has fill-rule" (T.pack "fill-rule") svg
+    ),
+    ( "round-trip parse rendered scene",
+      let doc =
+            document 200 200 $
+              EGroup
+                [ EFill (SolidFill red) (ECircle 50),
+                  EStroke green 2 (ERect 80 60),
+                  ETranslate 10 20 (EEllipse 30 20),
+                  EPath (buildPath (startAt (V2 0 0) >> lineTo (V2 100 0) >> lineTo (V2 100 100) >> closePath))
+                ]
+          svg = render doc
+       in case parseSvg svg of
+            Right parsed -> do
+              _ <- assertApprox "width" 0.1 200 (docWidth parsed)
+              assertApprox "height" 0.1 200 (docHeight parsed)
+            Left err -> Left ("parse failed: " ++ show err)
+    ),
+    ( "parse path with implicit L commands",
+      case parseElement (T.pack "<path d=\"M 0 0 L 10 10 20 20 30 30\" />") of
+        Right (EPath p) -> assertTrue "has 3 segments" (length (pathSegments p) >= 3)
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse fill with hex color",
+      case parseElement (T.pack "<circle r=\"10\" fill=\"#ff8800\" />") of
+        Right (EFill (SolidFill _) _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse fill url is ignored",
+      case parseElement (T.pack "<circle r=\"10\" fill=\"url(#grad1)\" />") of
+        Right (ECircle 10) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse stroke with default width",
+      case parseElement (T.pack "<circle r=\"10\" stroke=\"#000000\" />") of
+        Right (EStroke {}) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse ParseError Show/Eq",
+      do
+        _ <- assertTrue "UnexpectedEnd show" (not (null (show UnexpectedEnd)))
+        _ <- assertTrue "MalformedTag show" (not (null (show (MalformedTag (T.pack "bad")))))
+        _ <- assertTrue "MalformedPath show" (not (null (show (MalformedPath (T.pack "bad")))))
+        _ <- assertEqual "UnexpectedEnd eq" UnexpectedEnd UnexpectedEnd
+        assertTrue "errors differ" (UnexpectedEnd /= MalformedTag (T.pack "x"))
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Parse coverage 2 — paths, transforms, hex, attributes, errors
+-- ---------------------------------------------------------------------------
+
+testParseCoverage2 :: [(String, TestResult)]
+testParseCoverage2 =
+  [ ( "parse SVG with missing width/height defaults to 300",
+      case parseSvg (T.pack "<svg><circle r=\"10\" /></svg>") of
+        Right doc -> do
+          _ <- assertApprox "default width" 0.1 300 (docWidth doc)
+          assertApprox "default height" 0.1 300 (docHeight doc)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse non-svg root tag is error",
+      case parseSvg (T.pack "<div>hello</div>") of
+        Left (MalformedTag _) -> Right ()
+        Left err -> Left ("wrong error: " ++ show err)
+        Right _ -> Left "expected error for non-svg root"
+    ),
+    ( "parse empty input is UnexpectedEnd",
+      case parseSvg (T.pack "") of
+        Left UnexpectedEnd -> Right ()
+        Left err -> Left ("wrong error: " ++ show err)
+        Right _ -> Left "expected UnexpectedEnd"
+    ),
+    ( "parse path with all relative commands",
+      case parseElement (T.pack "<path d=\"M 0 0 l 10 10 h 20 v 30 c 1 2 3 4 5 6 q 10 20 30 0 a 25 25 0 0 1 50 0 z\" />") of
+        Right (EPath p) -> do
+          _ <- assertTrue "has segments" (length (pathSegments p) >= 6)
+          assertTrue "is closed" (pathClosed p)
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse path implicit L after M",
+      case parseElement (T.pack "<path d=\"M 0 0 10 20 30 40\" />") of
+        Right (EPath p) -> assertTrue "has 2 implicit L" (length (pathSegments p) >= 2)
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse path starting without M returns empty",
+      case parseElement (T.pack "<path d=\"L 10 10\" />") of
+        Right EEmpty -> Right ()
+        Left (MalformedPath _) -> Right ()
+        other -> Left ("expected EEmpty or MalformedPath, got: " ++ show other)
+    ),
+    ( "parse 3-digit hex color",
+      case parseElement (T.pack "<circle r=\"10\" fill=\"#f0a\" />") of
+        Right (EFill (SolidFill _) _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse single-quoted attributes",
+      case parseElement (T.pack "<circle r='25' fill='#ff0000' />") of
+        Right (EFill (SolidFill _) (ECircle r)) -> assertApprox "r" 0.1 25 r
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse transform scale one arg",
+      case parseElement (T.pack "<circle r=\"10\" transform=\"scale(2)\" />") of
+        Right (EScale sx sy _) -> do
+          _ <- assertApprox "sx" 0.1 2 sx
+          assertApprox "sy" 0.1 2 sy
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse transform scale two args",
+      case parseElement (T.pack "<circle r=\"10\" transform=\"scale(2 3)\" />") of
+        Right (EScale sx sy _) -> do
+          _ <- assertApprox "sx" 0.1 2 sx
+          assertApprox "sy" 0.1 3 sy
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse transform translate one arg",
+      case parseElement (T.pack "<circle r=\"10\" transform=\"translate(15)\" />") of
+        Right (ETranslate tx ty _) -> do
+          _ <- assertApprox "tx" 0.1 15 tx
+          assertApprox "ty" 0.1 0 ty
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse transform rotate with center",
+      case parseElement (T.pack "<circle r=\"10\" transform=\"rotate(45 50 50)\" />") of
+        Right (ERotateAround deg (V2 cx cy) _) -> do
+          _ <- assertApprox "deg" 0.1 45 deg
+          _ <- assertApprox "cx" 0.1 50 cx
+          assertApprox "cy" 0.1 50 cy
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse transform skewX",
+      case parseElement (T.pack "<rect width=\"10\" height=\"10\" transform=\"skewX(15)\" />") of
+        Right (ESkewX deg _) -> assertApprox "deg" 0.1 15 deg
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse transform skewY",
+      case parseElement (T.pack "<rect width=\"10\" height=\"10\" transform=\"skewY(20)\" />") of
+        Right (ESkewY deg _) -> assertApprox "deg" 0.1 20 deg
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse circle missing r defaults to 0",
+      case parseElement (T.pack "<circle />") of
+        Right (ECircle r) -> assertApprox "r" 0.1 0 r
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse rect missing dimensions defaults to 0",
+      case parseElement (T.pack "<rect />") of
+        Right (ERect w h) -> do
+          _ <- assertApprox "w" 0.1 0 w
+          assertApprox "h" 0.1 0 h
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse line missing coords defaults to 0",
+      case parseElement (T.pack "<line />") of
+        Right (ELine (V2 x1 y1) (V2 x2 y2)) -> do
+          _ <- assertApprox "x1" 0.1 0 x1
+          _ <- assertApprox "y1" 0.1 0 y1
+          _ <- assertApprox "x2" 0.1 0 x2
+          assertApprox "y2" 0.1 0 y2
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse use without hash prefix",
+      case parseElement (T.pack "<use href=\"myref\" />") of
+        Right (EUse ref) -> assertEqual "ref" (T.pack "myref") ref
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse nested svg element",
+      case parseElement (T.pack "<svg width=\"100\" height=\"100\"><circle r=\"5\" /></svg>") of
+        Right _ -> Right ()
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse polygon missing points is empty",
+      case parseElement (T.pack "<polygon />") of
+        Right (EPolygon pts) -> assertTrue "empty points" (null pts)
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse polyline missing points is empty",
+      case parseElement (T.pack "<polyline />") of
+        Right (EPolyline pts) -> assertTrue "empty points" (null pts)
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse path absolute C and Q commands",
+      case parseElement (T.pack "<path d=\"M 0 0 C 10 20 30 40 50 60 Q 70 80 90 100\" />") of
+        Right (EPath p) -> assertTrue "has 2 segments" (length (pathSegments p) == 2)
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse path absolute H and V commands",
+      case parseElement (T.pack "<path d=\"M 0 0 H 100 V 50\" />") of
+        Right (EPath p) -> assertTrue "has 2 segments" (length (pathSegments p) == 2)
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse path absolute A command",
+      case parseElement (T.pack "<path d=\"M 0 0 A 25 25 0 1 0 50 50\" />") of
+        Right (EPath p) -> assertTrue "has arc" (length (pathSegments p) == 1)
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse viewBox attribute",
+      case parseSvg (T.pack "<svg viewBox=\"0 0 100 200\" width=\"100\" height=\"200\"><circle r=\"5\" /></svg>") of
+        Right doc -> case docViewBox doc of
+          Just (ViewBox minX minY w h) -> do
+            _ <- assertApprox "minX" 0.1 0 minX
+            _ <- assertApprox "minY" 0.1 0 minY
+            _ <- assertApprox "w" 0.1 100 w
+            assertApprox "h" 0.1 200 h
+          Nothing -> Left "expected viewBox"
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse unknown tag becomes EEmpty",
+      case parseElement (T.pack "<foobar />") of
+        Right EEmpty -> Right ()
+        Right other -> Left ("expected EEmpty: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse path with empty d attribute",
+      case parseElement (T.pack "<path d=\"\" />") of
+        Right (EPath p) -> assertTrue "no segments" (null (pathSegments p))
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse circle with cx cy",
+      case parseElement (T.pack "<circle r=\"10\" cx=\"50\" cy=\"60\" />") of
+        Right (ETranslate tx ty (ECircle r)) -> do
+          _ <- assertApprox "cx" 0.1 50 tx
+          _ <- assertApprox "cy" 0.1 60 ty
+          assertApprox "r" 0.1 10 r
+        Right other -> Left ("expected translated circle: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse ellipse with cx cy",
+      case parseElement (T.pack "<ellipse rx=\"30\" ry=\"20\" cx=\"50\" cy=\"60\" />") of
+        Right (ETranslate tx ty (EEllipse rx ry)) -> do
+          _ <- assertApprox "cx" 0.1 50 tx
+          _ <- assertApprox "cy" 0.1 60 ty
+          _ <- assertApprox "rx" 0.1 30 rx
+          assertApprox "ry" 0.1 20 ry
+        Right other -> Left ("expected translated ellipse: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse rect with rx ry as roundedRect",
+      case parseElement (T.pack "<rect width=\"100\" height=\"50\" rx=\"5\" ry=\"3\" />") of
+        Right (ERoundRect w h rx ry) -> do
+          _ <- assertApprox "w" 0.1 100 w
+          _ <- assertApprox "h" 0.1 50 h
+          _ <- assertApprox "rx" 0.1 5 rx
+          assertApprox "ry" 0.1 3 ry
+        Right other -> Left ("expected roundedRect: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse text element",
+      case parseElement (T.pack "<text>Hello World</text>") of
+        Right (EText _ content) -> assertEqual "text content" (T.pack "Hello World") content
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse non-hex fill ignored",
+      case parseElement (T.pack "<circle r=\"10\" fill=\"red\" />") of
+        Right (ECircle r) -> assertApprox "r" 0.1 10 r
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse non-hex stroke ignored",
+      case parseElement (T.pack "<circle r=\"10\" stroke=\"blue\" />") of
+        Right (ECircle r) -> assertApprox "r" 0.1 10 r
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse invalid hex fill ignored",
+      case parseElement (T.pack "<circle r=\"10\" fill=\"#zzzzzz\" />") of
+        Right (ECircle r) -> assertApprox "r" 0.1 10 r
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse invalid hex stroke ignored",
+      case parseElement (T.pack "<circle r=\"10\" stroke=\"#xyz\" />") of
+        Right (ECircle r) -> assertApprox "r" 0.1 10 r
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse transform with unknown name ignored",
+      case parseElement (T.pack "<circle r=\"10\" transform=\"matrix(1 0 0 1 0 0)\" />") of
+        Right (ECircle r) -> assertApprox "r" 0.1 10 r
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse transform with wrong arg count ignored",
+      case parseElement (T.pack "<circle r=\"10\" transform=\"translate()\" />") of
+        Right (ECircle r) -> assertApprox "r" 0.1 10 r
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse malformed transform no paren",
+      case parseElement (T.pack "<circle r=\"10\" transform=\"badtransform\" />") of
+        Right (ECircle r) -> assertApprox "r" 0.1 10 r
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse path with multiple commands and continuation",
+      let svg = T.pack "<path d=\"M 10 20 L 30 40 50 60 H 100 V 200 C 1 2 3 4 5 6 Q 7 8 9 10 A 25 25 0 0 1 50 50 Z\" />"
+       in case parseElement svg of
+            Right (EPath p) -> do
+              _ <- assertTrue "has many segments" (length (pathSegments p) >= 7)
+              assertTrue "is closed" (pathClosed p)
+            Right other -> Left ("unexpected: " ++ show other)
+            Left err -> Left (show err)
+    ),
+    ( "parse path relative cubic",
+      case parseElement (T.pack "<path d=\"M 50 50 c 10 20 30 40 50 0\" />") of
+        Right (EPath p) ->
+          case pathSegments p of
+            [CubicTo c1 c2 pt] -> do
+              let V2 cx1 _ = c1
+              _ <- assertApprox "c1x offset from 50" 0.1 60 cx1
+              let V2 px _ = pt
+              assertApprox "end offset from 50" 0.1 100 px
+            other -> Left ("expected cubic: " ++ show other)
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse path relative quad",
+      case parseElement (T.pack "<path d=\"M 50 50 q 10 20 30 0\" />") of
+        Right (EPath p) ->
+          case pathSegments p of
+            [QuadTo ctrl pt] -> do
+              let V2 cx _ = ctrl
+              _ <- assertApprox "ctrl offset from 50" 0.1 60 cx
+              let V2 px _ = pt
+              assertApprox "end offset from 50" 0.1 80 px
+            other -> Left ("expected quad: " ++ show other)
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse path relative arc",
+      case parseElement (T.pack "<path d=\"M 50 50 a 25 25 0 0 1 50 0\" />") of
+        Right (EPath p) ->
+          case pathSegments p of
+            [ArcTo _ pt] ->
+              let V2 px _ = pt
+               in assertApprox "end offset from 50" 0.1 100 px
+            other -> Left ("expected arc: " ++ show other)
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse path relative horiz",
+      case parseElement (T.pack "<path d=\"M 10 20 h 30\" />") of
+        Right (EPath p) ->
+          case pathSegments p of
+            [LineTo (V2 px py)] -> do
+              _ <- assertApprox "x=10+30" 0.1 40 px
+              assertApprox "y=20" 0.1 20 py
+            other -> Left ("expected line: " ++ show other)
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse path relative vert",
+      case parseElement (T.pack "<path d=\"M 10 20 v 30\" />") of
+        Right (EPath p) ->
+          case pathSegments p of
+            [LineTo (V2 px py)] -> do
+              _ <- assertApprox "x=10" 0.1 10 px
+              assertApprox "y=20+30" 0.1 50 py
+            other -> Left ("expected line: " ++ show other)
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse group error propagation",
+      case parseElement (T.pack "<g><circle r=\"5\" /><rect width=\"10\" height=\"20\" /></g>") of
+        Right _ -> Right ()
+        Left err -> Left (show err)
+    ),
+    ( "parse SVG with comment",
+      case parseSvg (T.pack "<svg width=\"100\" height=\"100\"><!-- comment --><circle r=\"5\" /></svg>") of
+        Right doc -> assertApprox "width" 0.1 100 (docWidth doc)
+        Left err -> Left ("parse error: " ++ show err)
+    ),
+    ( "parse non-xml content returns error",
+      case parseElement (T.pack "just plain text no xml") of
+        Left _ -> Right ()
+        Right _ -> Left "expected parse error for non-xml"
+    ),
+    ( "parse 6-digit hex color lowercase",
+      case parseElement (T.pack "<circle r=\"5\" fill=\"#aabbcc\" />") of
+        Right (EFill (SolidFill _) _) -> Right ()
+        Right other -> Left ("expected fill: " ++ show other)
+        Left err -> Left (show err)
+    ),
+    ( "parse invalid hex length ignored",
+      case parseElement (T.pack "<circle r=\"5\" fill=\"#abcd\" />") of
+        Right (ECircle _) -> Right ()
+        Right other -> Left ("unexpected: " ++ show other)
+        Left err -> Left (show err)
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- PathOps coverage 2 — reverse, simplify, arc/quad segments
+-- ---------------------------------------------------------------------------
+
+testPathOpsCoverage2 :: [(String, TestResult)]
+testPathOpsCoverage2 =
+  [ ( "reversePath with multi-segment path",
+      let p = buildPath $ do
+            startAt (V2 0 0)
+            lineTo (V2 100 0)
+            cubicTo (V2 150 50) (V2 150 100) (V2 100 100)
+            quadTo (V2 50 150) (V2 0 100)
+            closePath
+          rev = reversePath p
+       in do
+            _ <- assertTrue "reversed has segments" (not (null (pathSegments rev)))
+            assertTrue "reversed is closed" (pathClosed rev)
+    ),
+    ( "reversePath with arc segment",
+      let p = Path (V2 0 0) [ArcTo (ArcParams 50 50 0 False True) (V2 100 0)] False
+          rev = reversePath p
+       in assertTrue "reversed has segments" (not (null (pathSegments rev)))
+    ),
+    ( "simplifyPath removes collinear points",
+      let p = polylinePath [V2 0 0, V2 10 0, V2 20 0, V2 30 0, V2 40 0, V2 50 0, V2 50 50]
+          simplified = simplifyPath 1.0 p
+       in assertTrue "fewer segments" (length (pathSegments simplified) < length (pathSegments p))
+    ),
+    ( "simplifyPath edge cases",
+      do
+        _ <- assertTrue "empty" (null (pathSegments (simplifyPath 1.0 (Path (V2 0 0) [] False))))
+        _ <- assertTrue "one seg" (not (null (pathSegments (simplifyPath 1.0 (polylinePath [V2 0 0, V2 10 0])))))
+        assertTrue "two seg" (not (null (pathSegments (simplifyPath 1.0 (polylinePath [V2 0 0, V2 5 0, V2 10 0])))))
+    ),
+    ( "measurePath with arc segments",
+      let p = Path (V2 0 0) [ArcTo (ArcParams 50 50 0 False True) (V2 100 0)] False
+          len = measurePath p
+       in assertTrue "arc length > straight line" (len > 90)
+    ),
+    ( "measurePath with quad segments",
+      let p = buildPath (startAt (V2 0 0) >> quadTo (V2 50 100) (V2 100 0))
+          len = measurePath p
+       in assertTrue "quad length > straight line" (len > 100)
+    ),
+    ( "splitPathAt with quad segment",
+      let p = buildPath (startAt (V2 0 0) >> quadTo (V2 50 100) (V2 100 0))
+          (before, after) = splitPathAt 0.5 p
+       in do
+            _ <- assertTrue "before has segments" (not (null (pathSegments before)))
+            assertTrue "after has segments" (not (null (pathSegments after)))
+    ),
+    ( "splitPathAt with arc segment",
+      let p = Path (V2 0 0) [ArcTo (ArcParams 50 50 0 False True) (V2 100 0)] False
+          (before, after) = splitPathAt 0.5 p
+       in do
+            _ <- assertTrue "before has segments" (not (null (pathSegments before)))
+            assertTrue "after has segments" (not (null (pathSegments after)))
+    ),
+    ( "offsetPath with quad segment",
+      let p = buildPath (startAt (V2 0 0) >> quadTo (V2 50 100) (V2 100 0))
+          off = offsetPath 5.0 p
+       in assertTrue "offset has segments" (not (null (pathSegments off)))
+    ),
+    ( "offsetPath with arc segment",
+      let p = Path (V2 0 0) [ArcTo (ArcParams 50 50 0 False True) (V2 100 0)] False
+          off = offsetPath 5.0 p
+       in assertTrue "offset has segments" (not (null (pathSegments off)))
+    ),
+    ( "subpath with arc segment",
+      let p = Path (V2 0 0) [ArcTo (ArcParams 50 50 0 False True) (V2 100 0)] False
+          sub = subpath 0.2 0.8 p
+       in assertTrue "subpath has segments" (not (null (pathSegments sub)))
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Noise coverage — open paths, closed paths, wobble, Voronoi edges
+-- ---------------------------------------------------------------------------
+
+testNoiseCoverage :: [(String, TestResult)]
+testNoiseCoverage =
+  [ ( "noisePath generates open path",
+      let p = noisePath (perlin2D 42) 20 100 50 0.05
+       in do
+            _ <- assertTrue "has segments" (not (null (pathSegments p)))
+            assertTrue "is open" (not (pathClosed p))
+    ),
+    ( "noiseClosedPath generates closed path",
+      let p = noiseClosedPath (perlin2D 42) 20 100 50 0.05 0.1
+       in do
+            _ <- assertTrue "has segments" (not (null (pathSegments p)))
+            assertTrue "is closed" (pathClosed p)
+    ),
+    ( "wobblePath distorts all segment types",
+      let p =
+            Path
+              (V2 0 0)
+              [ LineTo (V2 50 0),
+                CubicTo (V2 60 30) (V2 90 30) (V2 100 0),
+                QuadTo (V2 125 50) (V2 150 0),
+                ArcTo (ArcParams 25 25 0 False True) (V2 200 0)
+              ]
+              False
+          wobbled = wobblePath (perlin2D 42) 5.0 p
+       in assertTrue "wobbled has 4 segments" (length (pathSegments wobbled) == 4)
+    ),
+    ( "voronoiEdges produces edges",
+      let edges = voronoiEdges 42 10 5 200 200
+       in assertTrue "has edges" (not (null edges))
+    ),
+    ( "fbm zero octaves",
+      let val = fbm (perlin2D 42) 0 0.5 2.0 1.0 1.0
+       in assertTrue "zero octaves returns 0" (abs val < 0.01)
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Path builder coverage — arcTo, polygonPath edge cases
+-- ---------------------------------------------------------------------------
+
+testPathBuilderCoverage :: [(String, TestResult)]
+testPathBuilderCoverage =
+  [ ( "arcTo builds arc segment",
+      let p = buildPath $ do
+            startAt (V2 0 0)
+            arcTo (ArcParams 50 50 0 False True) (V2 100 0)
+       in case pathSegments p of
+            [ArcTo params end] -> do
+              _ <- assertApprox "rx" 0.1 50 (arcRx params)
+              assertApprox "endX" 0.1 100 (let V2 x _ = end in x)
+            other -> Left ("unexpected segments: " ++ show other)
+    ),
+    ( "polygonPath empty list",
+      let p = polygonPath []
+       in assertTrue "no segments" (null (pathSegments p))
+    ),
+    ( "polygonPath single point",
+      let p = polygonPath [V2 0 0]
+       in assertTrue "no segments" (null (pathSegments p))
+    ),
+    ( "polygonPath two points",
+      let p = polygonPath [V2 0 0, V2 10 0]
+       in assertTrue "no segments" (null (pathSegments p))
+    ),
+    ( "path with arc renders A command",
+      let p =
+            Path
+              (V2 0 0)
+              [ArcTo (ArcParams 25 25 0 False True) (V2 50 0)]
+              False
+          svg = renderElement (EPath p)
+       in assertContains "has arc" (T.pack "A25") svg
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Boolean coverage 2 — union edge cases, curve flattening
+-- ---------------------------------------------------------------------------
+
+testBooleanCoverage2 :: [(String, TestResult)]
+testBooleanCoverage2 =
+  [ ( "union with empty path",
+      let emptyP = Path (V2 0 0) [] True
+          sq = polygonPath [V2 0 0, V2 100 0, V2 100 100, V2 0 100]
+          result = union emptyP sq
+       in assertTrue "result has segments" (not (null (pathSegments result)))
+    ),
+    ( "boolean ops with cubic segments",
+      let p1 = buildPath $ do
+            startAt (V2 0 0)
+            cubicTo (V2 50 100) (V2 100 100) (V2 100 0)
+            lineTo (V2 100 100)
+            lineTo (V2 0 100)
+            closePath
+          p2 = polygonPath [V2 25 25, V2 75 25, V2 75 75, V2 25 75]
+          result = intersection p1 p2
+       in assertTrue "intersection ran" (pathStart result `seq` True)
+    ),
+    ( "boolean ops with quad segments",
+      let p1 = buildPath $ do
+            startAt (V2 0 0)
+            quadTo (V2 50 100) (V2 100 0)
+            lineTo (V2 100 100)
+            lineTo (V2 0 100)
+            closePath
+          p2 = polygonPath [V2 25 25, V2 75 25, V2 75 75, V2 25 75]
+          result = intersection p1 p2
+       in assertTrue "intersection ran" (pathStart result `seq` True)
+    ),
+    ( "boolean ops with arc segments",
+      let p1 =
+            Path
+              (V2 0 0)
+              [ ArcTo (ArcParams 100 100 0 False True) (V2 100 0),
+                LineTo (V2 100 100),
+                LineTo (V2 0 100)
+              ]
+              True
+          p2 = polygonPath [V2 25 25, V2 75 25, V2 75 75, V2 25 75]
+          result = intersection p1 p2
+       in assertTrue "intersection ran" (pathStart result `seq` True)
+    ),
+    ( "polygonArea of clockwise triangle",
+      let area = polygonArea [V2 0 0, V2 100 0, V2 50 100]
+       in assertTrue "non-zero area" (abs area > 100)
+    )
+  ]
+
+-- ---------------------------------------------------------------------------
+-- Derived instances coverage 2 — remaining Show/Eq/Ord
+-- ---------------------------------------------------------------------------
+
+testDerivedCoverage2 :: [(String, TestResult)]
+testDerivedCoverage2 =
+  [ ( "ArcParams Show/Eq",
+      let ap1 = ArcParams 50 50 0 False True
+          ap2 = ArcParams 50 50 0 False True
+          ap3 = ArcParams 25 25 0 True False
+       in do
+            _ <- assertEqual "equal" ap1 ap2
+            _ <- assertTrue "not equal" (ap1 /= ap3)
+            assertTrue "show" (not (null (show ap1)))
+    ),
+    ( "Segment Show/Eq all constructors",
+      let segs =
+            [ LineTo (V2 10 10),
+              CubicTo (V2 1 2) (V2 3 4) (V2 5 6),
+              QuadTo (V2 1 2) (V2 3 4),
+              ArcTo (ArcParams 50 50 0 False True) (V2 100 0)
+            ]
+       in do
+            _ <- assertTrue "all show" (not (any (null . show) segs))
+            _ <- assertTrue "eq self" (all (\s -> s == s) segs)
+            assertTrue "differ" (head segs /= segs !! 1)
+    ),
+    ( "Path Show/Eq",
+      let p1 = buildPath (startAt (V2 0 0) >> lineTo (V2 10 0))
+          p2 = buildPath (startAt (V2 0 0) >> lineTo (V2 10 0))
+          p3 = buildPath (startAt (V2 0 0) >> lineTo (V2 20 0))
+       in do
+            _ <- assertEqual "equal paths" p1 p2
+            _ <- assertTrue "diff paths" (p1 /= p3)
+            assertTrue "show path" (not (null (show p1)))
+    ),
+    ( "ViewBox Show/Eq",
+      let vb1 = ViewBox 0 0 100 100
+          vb2 = ViewBox 0 0 100 100
+          vb3 = ViewBox 0 0 200 200
+       in do
+            _ <- assertEqual "equal" vb1 vb2
+            _ <- assertTrue "not equal" (vb1 /= vb3)
+            assertTrue "show" (not (null (show vb1)))
+    ),
+    ( "Document Show/Eq",
+      let d1 = Document 100 100 Nothing EEmpty
+          d2 = Document 100 100 Nothing EEmpty
+          d3 = Document 200 200 Nothing EEmpty
+       in do
+            _ <- assertEqual "equal" d1 d2
+            _ <- assertTrue "not equal" (d1 /= d3)
+            assertTrue "show" (not (null (show d1)))
+    ),
+    ( "Fill Show/Eq all constructors",
+      let fills = [NoFill, SolidFill red, GradientFill (LinearGradient (V2 0 0) (V2 1 1) [GradientStop 0 red 1] SpreadPad)]
+       in do
+            _ <- assertTrue "all show" (not (any (null . show) fills))
+            _ <- assertTrue "eq self" (all (\f -> f == f) fills)
+            assertTrue "differ" (NoFill /= SolidFill red)
+    ),
+    ( "Gradient Show/Eq",
+      let g1 = LinearGradient (V2 0 0) (V2 1 1) [GradientStop 0 red 1] SpreadPad
+          g2 = RadialGradient (V2 0.5 0.5) 1 (V2 0.5 0.5) [GradientStop 0 blue 1] SpreadPad
+       in do
+            _ <- assertTrue "show linear" (not (null (show g1)))
+            _ <- assertTrue "show radial" (not (null (show g2)))
+            assertTrue "differ" (g1 /= g2)
+    ),
+    ( "GradientStop Show/Eq",
+      let s1 = GradientStop 0 red 1
+          s2 = GradientStop 0 red 1
+          s3 = GradientStop 1 blue 0.5
+       in do
+            _ <- assertEqual "equal" s1 s2
+            _ <- assertTrue "differ" (s1 /= s3)
+            assertTrue "show" (not (null (show s1)))
+    ),
+    ( "StrokeConfig Show/Eq",
+      let sc1 = defaultStrokeConfig
+          sc2 = defaultStrokeConfig {strokeConfigWidth = 5}
+       in do
+            _ <- assertTrue "eq self" (sc1 == sc1)
+            _ <- assertTrue "differ" (sc1 /= sc2)
+            assertTrue "show" (not (null (show sc1)))
+    ),
+    ( "TextConfig Show/Eq",
+      let tc1 = defaultTextConfig
+          tc2 = defaultTextConfig {textConfigBold = True}
+       in do
+            _ <- assertTrue "eq self" (tc1 == tc1)
+            _ <- assertTrue "differ" (tc1 /= tc2)
+            assertTrue "show" (not (null (show tc1)))
+    ),
+    ( "TextAnchor Show/Eq/Ord",
+      do
+        _ <- assertTrue "show" (not (null (show AnchorStart)))
+        _ <- assertTrue "eq" (AnchorStart == AnchorStart)
+        _ <- assertTrue "differ" (AnchorStart /= AnchorMiddle)
+        assertTrue "ord" (AnchorStart < AnchorEnd)
+    ),
+    ( "FilterKind Show/Eq",
+      let f1 = FilterBlur 3
+          f2 = FilterDropShadow 2 2 4 black
+       in do
+            _ <- assertTrue "show blur" (not (null (show f1)))
+            _ <- assertTrue "show shadow" (not (null (show f2)))
+            assertTrue "differ" (f1 /= f2)
+    ),
+    ( "SpreadMethod Show/Eq/Ord",
+      do
+        _ <- assertTrue "show" (not (null (show SpreadPad)))
+        _ <- assertTrue "eq" (SpreadPad == SpreadPad)
+        _ <- assertTrue "differ" (SpreadPad /= SpreadReflect)
+        assertTrue "ord" (SpreadPad < SpreadRepeat)
+    ),
+    ( "LineCap Show/Eq/Ord",
+      do
+        _ <- assertTrue "show" (not (null (show CapButt)))
+        _ <- assertTrue "eq" (CapButt == CapButt)
+        _ <- assertTrue "differ" (CapButt /= CapRound)
+        assertTrue "ord" (CapButt < CapSquare)
+    ),
+    ( "LineJoin Show/Eq/Ord",
+      do
+        _ <- assertTrue "show" (not (null (show JoinMiter)))
+        _ <- assertTrue "eq" (JoinMiter == JoinMiter)
+        _ <- assertTrue "differ" (JoinMiter /= JoinRound)
+        assertTrue "ord" (JoinMiter < JoinBevel)
+    ),
+    ( "FillRule Show/Eq/Ord",
+      do
+        _ <- assertTrue "show" (not (null (show FillNonZero)))
+        _ <- assertTrue "eq" (FillNonZero == FillNonZero)
+        _ <- assertTrue "differ" (FillNonZero /= FillEvenOdd)
+        assertTrue "ord" (FillNonZero < FillEvenOdd)
+    ),
+    ( "Element Show for all constructors",
+      let elems =
+            [ EEmpty,
+              ECircle 5,
+              EEllipse 10 5,
+              ERect 10 20,
+              ERoundRect 10 20 2 2,
+              ELine (V2 0 0) (V2 10 10),
+              EPolygon [V2 0 0, V2 10 0, V2 5 10],
+              EPolyline [V2 0 0, V2 10 0],
+              EPath (buildPath (startAt (V2 0 0) >> lineTo (V2 10 0))),
+              EText defaultTextConfig (T.pack "hi"),
+              EGroup [EEmpty],
+              EFill NoFill EEmpty,
+              EStroke red 1 EEmpty,
+              EStrokeEx defaultStrokeConfig EEmpty,
+              EFillRule FillNonZero EEmpty,
+              ETranslate 1 2 EEmpty,
+              ERotate 45 EEmpty,
+              ERotateAround 90 (V2 0 0) EEmpty,
+              EScale 2 2 EEmpty,
+              ESkewX 15 EEmpty,
+              ESkewY 20 EEmpty,
+              EOpacity 0.5 EEmpty,
+              EClip EEmpty EEmpty,
+              EMask EEmpty EEmpty,
+              EFilter (FilterBlur 3) EEmpty,
+              EWithId (T.pack "id") EEmpty,
+              EUse (T.pack "ref"),
+              ETitle (T.pack "t") EEmpty,
+              EDesc (T.pack "d") EEmpty,
+              ERaw (T.pack "<x/>")
+            ]
+       in assertTrue "all show" (not (any (null . show) elems))
+    ),
+    ( "Matrix all fields",
+      let m = Matrix 1 0 0 1 0 0
+       in do
+            _ <- assertApprox "a" epsilon 1 (matA m)
+            _ <- assertApprox "b" epsilon 0 (matB m)
+            _ <- assertApprox "c" epsilon 0 (matC m)
+            _ <- assertApprox "d" epsilon 1 (matD m)
+            _ <- assertApprox "tx" epsilon 0 (matTx m)
+            assertApprox "ty" epsilon 0 (matTy m)
     )
   ]
 

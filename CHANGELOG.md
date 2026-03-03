@@ -1,15 +1,23 @@
 # Changelog
 
-## 0.1.0.2
+## Unreleased
 
 ### Bug Fixes
-- Fix Hackage Haddock coverage: document all positional constructor
-  arguments with `-- |` comments. Local `cabal haddock` reported 100% on both
-  GHC 9.6.7 and 9.8.4, but Hackage's server-side doc build counts positional
-  constructor arguments as separate items requiring documentation.
+- Fix SVG parser failing to parse `width`/`height` on `<svg>` tags containing
+  URL attributes (e.g. `xmlns="http://..."`). The `/` in quoted URLs was
+  prematurely terminating the tag scan, causing round-trip `render → parseSvg`
+  to lose document dimensions.
 
 ### Improvements
+- 523 tests (was 294), 92% HPC expression coverage across all 17 modules
+
+## 0.1.0.2
+
+### Improvements
+- Document all positional constructor arguments with `-- |` comments for
+  richer API docs on Hackage
 - Upgrade tested GHC from 9.6.7 to 9.8.4
+- Fix GHC 9.8 `-Wcompat` warnings (`head`/`last` replaced with pattern matching)
 
 ### Affected Types
 - `V2`, `ViewBox`, `Segment`, `Color` — all constructor arguments documented
