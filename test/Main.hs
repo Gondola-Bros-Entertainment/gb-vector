@@ -9,7 +9,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import GBVector.Bezier (arcToCubics, cubicBBox, cubicLength, evalCubic, evalQuad, flattenCubic, splitCubicAt, subdivideCubic)
-import GBVector.Boolean (difference, intersection, pathToPolygon, pointInPolygon, polygonArea, polygonToPath, union)
+import GBVector.Boolean (intersection, pathToPolygon, pointInPolygon, polygonArea, polygonToPath, union)
 import GBVector.Color
   ( Color (..),
     black,
