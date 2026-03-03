@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0.3
 
 ### Bug Fixes
 - Fix SVG parser failing to parse `width`/`height` on `<svg>` tags containing
