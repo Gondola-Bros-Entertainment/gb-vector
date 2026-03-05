@@ -1,6 +1,6 @@
 -- | Path construction DSL.
 --
--- Build paths with a monadic-style interface using 'PathBuilder':
+-- Build paths with a monadic-style interface using @PathBuilder@:
 --
 -- @
 -- heart :: Path
@@ -62,7 +62,7 @@ instance Monad PathBuilder where
         PathBuilder n = k a
      in n s1
 
--- | Run a 'PathBuilder' to produce a 'Path'.
+-- | Run a t'PathBuilder' to produce a t'Path'.
 buildPath :: PathBuilder () -> Path
 buildPath (PathBuilder f) =
   let ((), st) = f emptyState

@@ -1,4 +1,4 @@
--- | Composition combinators and 'Document' construction.
+-- | Composition combinators and t'Document' construction.
 --
 -- 'Element' has 'Semigroup' and 'Monoid' instances via 'EGroup'.
 module GBVector.Compose

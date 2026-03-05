@@ -1,7 +1,7 @@
 -- | Path manipulation operations.
 --
 -- Pure functions for reversing, measuring, splitting, offsetting, and
--- simplifying paths. All operations work on the 'Path' type from
+-- simplifying paths. All operations work on the t'Path' type from
 -- "GBVector.Types".
 module GBVector.PathOps
   ( -- * Reversal

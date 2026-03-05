@@ -1,8 +1,8 @@
 -- | Core geometry types for SVG generation.
 --
--- All types use strict fields. 'V2' is the fundamental 2D point/vector.
+-- All types use strict fields. @V2@ is the fundamental 2D point/vector.
 -- 'Segment' represents a single path command (line, cubic, quad, arc).
--- 'Path' is a sequence of segments with a start point and open/closed flag.
+-- @Path@ is a sequence of segments with a start point and open/closed flag.
 module GBVector.Types
   ( -- * 2D Vector
     V2 (..),

@@ -5,7 +5,7 @@
 --
 -- @translate 100 100 $ rotate 45 $ scale 2 $ circle 30@
 --
--- 'Matrix' provides a 3x2 affine transform for pre-computing combined
+-- t'Matrix' provides a 3x2 affine transform for pre-computing combined
 -- transforms, applying to points, and composing transform pipelines.
 module GBVector.Transform
   ( -- * Translation

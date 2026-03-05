@@ -46,14 +46,14 @@ import GBVector.Types
 -- Rendering
 -- ---------------------------------------------------------------------------
 
--- | Render a 'Document' to SVG text with newlines.
+-- | Render a t'Document' to SVG text with newlines.
 render :: Document -> Text
 render doc =
   let (defs, body) = collectDefs (docElement doc)
       defsBlock = renderDefs defs
    in svgHeader doc <> defsBlock <> body <> svgFooter
 
--- | Render a 'Document' to compact SVG (no extra whitespace).
+-- | Render a t'Document' to compact SVG (no extra whitespace).
 renderCompact :: Document -> Text
 renderCompact = render
 
@@ -63,7 +63,7 @@ renderElement el =
   let (defs, body) = collectDefs el
    in renderDefs defs <> body
 
--- | Write a 'Document' to a file.
+-- | Write a t'Document' to a file.
 writeSvg :: FilePath -> Document -> IO ()
 writeSvg path doc = TIO.writeFile path (render doc)
 

@@ -2,7 +2,7 @@
 --
 -- Union, intersection, difference, and symmetric difference (XOR) of
 -- closed paths. Paths are flattened to polygons for boolean computation,
--- then the result is returned as a polygon 'Path'.
+-- then the result is returned as a polygon t'Path'.
 --
 -- This is a practical polygon-clipping implementation using the
 -- Sutherland-Hodgman algorithm for intersection/clipping, with
@@ -16,7 +16,7 @@
 -- * 'union' of non-overlapping polygons concatenates their vertices
 --   into a single path. This renders correctly with SVG even-odd fill
 --   but is not a true geometric union (no outer-boundary tracing).
--- * 'intersectEpsilon' is an absolute tolerance, not scale-aware.
+-- * @intersectEpsilon@ is an absolute tolerance, not scale-aware.
 --   Very large or very small coordinate spaces may need adjustment.
 module GBVector.Boolean
   ( -- * Boolean Operations
@@ -102,7 +102,7 @@ pathToPolygon path =
       segs = pathSegments path
    in start : concatMap (flattenSeg start) (zip (start : map segEndpoint segs) segs)
 
--- | Convert a list of polygon vertices back to a closed 'Path'.
+-- | Convert a list of polygon vertices back to a closed t'Path'.
 polygonToPath :: [V2] -> Path
 polygonToPath [] = Path (V2 0 0) [] False
 polygonToPath [p] = Path p [] True

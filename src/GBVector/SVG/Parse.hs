@@ -61,7 +61,7 @@ data ParseError
 -- Public API
 -- ---------------------------------------------------------------------------
 
--- | Parse an SVG document string into a 'Document'.
+-- | Parse an SVG document string into a t'Document'.
 -- Returns 'Left' with an error or 'Right' with the parsed document.
 parseSvg :: Text -> Either ParseError Document
 parseSvg input =
@@ -334,7 +334,7 @@ makeTransform name args = case name of
 -- SVG Path Data Parser
 -- ---------------------------------------------------------------------------
 
--- | Parse SVG path data string (the @d@ attribute) into a 'Path'.
+-- | Parse SVG path data string (the @d@ attribute) into a t'Path'.
 parsePathData :: Text -> Either ParseError Path
 parsePathData input =
   let trimmed = T.strip input
@@ -534,7 +534,7 @@ safeReadDouble s = case reads s of
 -- Hex Color Parsing
 -- ---------------------------------------------------------------------------
 
--- | Parse a hex color like @#rrggbb@ or @#rgb@ to a 'Color'.
+-- | Parse a hex color like @#rrggbb@ or @#rgb@ to a t'Color'.
 parseHexToColor :: Text -> Maybe Color
 parseHexToColor hex =
   let digits = T.drop 1 hex
