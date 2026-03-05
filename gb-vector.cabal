@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          gb-vector
-version:       0.1.0.3
+version:       0.1.0.4
 stability:     experimental
 synopsis:      Pure Haskell SVG generation
 description:

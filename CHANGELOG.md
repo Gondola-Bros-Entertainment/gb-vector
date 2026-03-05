@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0.4
+
+### Improvements
+- Fix all Haddock ambiguity warnings (disambiguate type-vs-constructor references)
+- Fix missing link for unexported `intersectEpsilon` in Boolean module docs
+- Add `cabal haddock` step to CI pipeline to catch doc warnings before publish
+
 ## 0.1.0.3
 
 ### Bug Fixes
