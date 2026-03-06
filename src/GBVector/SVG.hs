@@ -319,6 +319,7 @@ renderGradientDef :: GradientDef -> Text
 renderGradientDef (GradientDef gid (LinearGradient (V2 x1 y1) (V2 x2 y2) stops spread)) =
   "<linearGradient"
     <> attr "id" gid
+    <> attr "gradientUnits" "userSpaceOnUse"
     <> attr "x1" (showDouble x1)
     <> attr "y1" (showDouble y1)
     <> attr "x2" (showDouble x2)
@@ -330,6 +331,7 @@ renderGradientDef (GradientDef gid (LinearGradient (V2 x1 y1) (V2 x2 y2) stops s
 renderGradientDef (GradientDef gid (RadialGradient (V2 cx cy) r (V2 fx fy) stops spread)) =
   "<radialGradient"
     <> attr "id" gid
+    <> attr "gradientUnits" "userSpaceOnUse"
     <> attr "cx" (showDouble cx)
     <> attr "cy" (showDouble cy)
     <> attr "r" (showDouble r)

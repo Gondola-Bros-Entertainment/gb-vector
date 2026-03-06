@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0.5
+
+### Bug Fixes
+- Fix gradient rendering under transforms. Add `gradientUnits="userSpaceOnUse"`
+  to both linear and radial gradient SVG output. Without this, browsers default
+  to `objectBoundingBox` coordinates which misinterpret absolute gradient
+  positions when the element tree contains scale/translate transforms.
+
 ## 0.1.0.4
 
 ### Improvements
